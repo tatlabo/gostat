@@ -11,24 +11,22 @@ import (
 )
 
 type application struct {
-	snippets models.SnippetModel
-	snippet  models.Snippet
+	Snippets *models.SnippetModel
+	Snippet  *models.Snippet
+}
+
+var app = &application{
+	Snippets: &models.SnippetModel{
+		DB: database.New(),
+	},
+	Snippet: &models.Snippet{},
 }
 
 func main() {
 
-	var (
-		app = &application{
-			snippets: models.SnippetModel{
-				DB: database.New(),
-			},
-			snippet: models.Snippet{},
-		}
+	var addr = flag.String("addr", ":5000", "HTTP network address")
 
-		addr = flag.String("addr", ":5000", "HTTP network address")
-
-		logger = slog.New(slog.NewJSONHandler(os.Stdout, nil))
-	)
+	var logger = slog.New(slog.NewJSONHandler(os.Stdout, nil))
 
 	flag.Parse()
 

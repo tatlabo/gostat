@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 	"text/template"
@@ -11,10 +12,7 @@ var tpl = templates.ExecuteTemplate
 
 func hello(w http.ResponseWriter, r *http.Request) {
 
-	var msg struct {
-		Message string
-		Title   string
-	}
+	var msg msg
 
 	msg.Title = "Snippet Page"
 
@@ -24,6 +22,11 @@ func hello(w http.ResponseWriter, r *http.Request) {
 
 }
 
+type msg struct {
+	Message string
+	Title   string
+}
+
 func snippet(w http.ResponseWriter, r *http.Request) {
 
 	var id int
@@ -31,11 +34,7 @@ func snippet(w http.ResponseWriter, r *http.Request) {
 	idUrl := r.URL.Query().Get("id")
 	id, _ = strconv.Atoi(idUrl)
 
-	var msg struct {
-		Message string
-		Title   string
-	}
-
+	var msg msg
 	msg.Title = "Snippet Page"
 
 	if id == 0 {
@@ -44,19 +43,28 @@ func snippet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	msg.Message = "Snnippet page"
+	msg.Message = "Snnippet page nr " + strconv.Itoa(id)
 	tpl(w, "home.html", msg)
 
 }
 
 func (app *application) snippetCreate(w http.ResponseWriter, r *http.Request) {
 
-	var snippet = app.snippet
+	var s = app.Snippet
+	s.Title = r.FormValue("title")
+	s.Content = r.FormValue("content")
+	s.Expires = r.FormValue("expires")
 
-	_, err := app.snippets.Insert(&snippet)
+	_, err := app.Snippets.Insert(s)
 	if err != nil {
-		http.Error(w, "Unable to create snippet", http.StatusInternalServerError)
+		fmt.Printf("ERROR inserting snippet: %v\n", err)
+		http.Error(w, fmt.Sprintf("Unable to create snippet: %v", err), http.StatusInternalServerError)
 		return
 	}
 
+	var msg msg
+	msg.Title = "Snippet Page"
+	msg.Message = fmt.Sprintf("Title: %s, Content: %s, Expires: %v\n", s.Title, s.Content, s.Expires)
+
+	tpl(w, "home.html", msg)
 }
