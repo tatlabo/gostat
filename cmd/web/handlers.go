@@ -55,7 +55,7 @@ func (app *application) snippetCreate(w http.ResponseWriter, r *http.Request) {
 	s.Content = r.FormValue("content")
 	s.Expires = r.FormValue("expires")
 
-	_, err := app.Snippets.Insert(s)
+	res, err := app.Snippets.Insert(s)
 	if err != nil {
 		fmt.Printf("ERROR inserting snippet: %v\n", err)
 		http.Error(w, fmt.Sprintf("Unable to create snippet: %v", err), http.StatusInternalServerError)
@@ -64,7 +64,7 @@ func (app *application) snippetCreate(w http.ResponseWriter, r *http.Request) {
 
 	var msg msg
 	msg.Title = "Snippet Page"
-	msg.Message = fmt.Sprintf("Title: %s, Content: %s, Expires: %v\n", s.Title, s.Content, s.Expires)
+	msg.Message = fmt.Sprintf("ID: %d, Title: %s, Content: %s, Expires: %v\n", *res, s.Title, s.Content, s.Expires)
 
 	tpl(w, "home.html", msg)
 }
