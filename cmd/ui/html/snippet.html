@@ -1,0 +1,28 @@
+
+{{ template "head" . }}
+<div class="container-md">
+
+{{ template "navbar" . }}
+
+<h2>
+    {{ or .Msg }}
+</h2>
+
+{{ template "snippet-form" . }}
+
+{{ if .Snippet }} 
+
+        <div class="card mb-3">
+            <div class="card-body">
+                <h5 class="card-title">{{ .Snippet.Title }}</h5>
+                <p class="card-text">{{ .Snippet.Content }}</p> 
+                <p class="card-text"><small class="text-muted">Expires: {{ .Snippet.Expires }}</small></p>
+            </div>
+        </div>
+
+{{ else }}
+    <p>No snippets available.</p>
+{{ end }}
+
+</div>
+{{ template "footer" . }}

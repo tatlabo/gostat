@@ -12,17 +12,17 @@ import (
 
 type application struct {
 	Snippets *models.SnippetModel
-	Snippet  *models.Snippet
-}
-
-var app = &application{
-	Snippets: &models.SnippetModel{
-		DB: database.New(),
-	},
-	Snippet: &models.Snippet{},
+	Snippet  models.Snippet
 }
 
 func main() {
+
+	app := &application{
+		Snippets: &models.SnippetModel{
+			DB: database.New(),
+		},
+		Snippet: models.Snippet{},
+	}
 
 	var addr = flag.String("addr", ":5000", "HTTP network address")
 
@@ -54,11 +54,13 @@ func (app *application) Routes() *http.ServeMux {
 
 	mux.HandleFunc("GET /{$}", setHeaders(hello))
 
-	mux.HandleFunc("GET /snippet", setHeaders(snippet))
+	mux.HandleFunc("GET /snippet", setHeaders(app.snippet))
+
+	mux.HandleFunc("GET /snippet/all", setHeaders(app.snippetList))
 
 	mux.HandleFunc("POST /snippet/create", setHeaders(app.snippetCreate))
 
-	mux.HandleFunc("GET /snippet/{id}", setHeaders(snippet))
+	// mux.HandleFunc("GET /snippet/{id}", setHeaders(snippet))
 
 	return mux
 }
