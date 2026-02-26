@@ -20,7 +20,7 @@ func init() {
 		Title:   "Testowy snippet",
 		Content: "Testowy content",
 		Created: time.Now(),
-		Expires: "2025-05-05",
+		Expires: time.Time{},
 	}
 
 }
@@ -56,7 +56,7 @@ func TestSnippetOperations(t *testing.T) {
 			Title:   "Testowy snippet",
 			Content: "Testowy content",
 			Created: time.Now(),
-			Expires: "2027-05-05",
+			Expires: time.Date(2025, 3, 28, 0, 0, 0, 0, time.UTC),
 		}
 
 		id, err := m.Insert(&s)

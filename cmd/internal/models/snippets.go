@@ -12,7 +12,7 @@ type Snippet struct {
 	Title   string    `db:"title" json:"title"`
 	Content string    `db:"content" json:"content"`
 	Created time.Time `db:"created" json:"created"`
-	Expires string    `db:"expires" json:"expires"`
+	Expires time.Time `db:"expires" json:"expires"`
 }
 
 type SnippetModel struct {

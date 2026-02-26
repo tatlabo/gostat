@@ -14,13 +14,14 @@
             <div class="card-body">
                 <h5 class="card-title">{{ .Title }}</h5>
                 <p class="card-text">{{ .Content }}</p> 
-                <p class="card-text"><small class="text-muted">Expires: {{ .Expires }}</small></p>
+                <time class="card-text"><small class="text-muted">Expires: {{ .Expires.Weekday }}, {{ .Expires.Format "2006-01-02" }}</small></time>
+                <time class="card-text"><small class="text-muted">Created: {{ .Created.Weekday }}, {{ .Created.Format "2006-01-02" }}</small></time>
             </div>
         </div>
 
-{{ end }}
+    {{ end }}
 {{ else }}
-    <p>No snippets available.</p>
+        <p>No snippets available.</p>
 {{ end }}
 </div>
 {{ template "footer" . }}

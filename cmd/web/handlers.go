@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strconv"
 	"text/template"
+	"time"
 )
 
 var templates = template.Must(template.ParseGlob("./cmd/ui/html/*.html"))
@@ -20,7 +21,11 @@ func hello(w http.ResponseWriter, r *http.Request) {
 
 	msg.Message = "Hello, World! Everyone loves Go!"
 
-	tpl(w, "home.html", msg)
+	err := tpl(w, "home.html", msg)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Unable to render template: %v", err), http.StatusInternalServerError)
+		return
+	}
 
 }
 
@@ -66,7 +71,11 @@ func (app *application) snippet(w http.ResponseWriter, r *http.Request) {
 	data.Title = "Snippet Page"
 
 	data.Msg = "Snnippet page nr " + strconv.Itoa(id)
-	tpl(w, "snippet.html", data)
+	err = tpl(w, "snippet.html", data)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Unable to render template: %v", err), http.StatusInternalServerError)
+		return
+	}
 
 }
 
@@ -94,7 +103,11 @@ func (app *application) snippetList(w http.ResponseWriter, r *http.Request) {
 	render.Snippets = res
 	render.Title = "Snippet List Page"
 	render.Msg = "Snippet list page"
-	tpl(w, "snippet_list.html", render)
+	err = tpl(w, "snippet_list.html", render)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Unable to render template: %v", err), http.StatusInternalServerError)
+		return
+	}
 
 }
 
@@ -103,7 +116,12 @@ func (app *application) snippetCreate(w http.ResponseWriter, r *http.Request) {
 	var s = app.Snippet
 	s.Title = r.FormValue("title")
 	s.Content = r.FormValue("content")
-	s.Expires = r.FormValue("expires")
+	expires, err := time.Parse("2006-01-02", r.FormValue("expires"))
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Invalid date format: %v", err), http.StatusBadRequest)
+		return
+	}
+	s.Expires = expires
 
 	res, err := app.Snippets.Insert(&s)
 	if err != nil {

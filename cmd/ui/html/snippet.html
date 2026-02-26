@@ -11,15 +11,16 @@
 {{ template "snippet-form" . }}
 
 {{ if .Snippet }} 
-
+    {{ with .Snippet }} 
         <div class="card mb-3">
             <div class="card-body">
-                <h5 class="card-title">{{ .Snippet.Title }}</h5>
-                <p class="card-text">{{ .Snippet.Content }}</p> 
-                <p class="card-text"><small class="text-muted">Expires: {{ .Snippet.Expires }}</small></p>
+                <h5 class="card-title">{{ .Title }}</h5>
+                <p class="card-text">{{ .Content }}</p> 
+                <time class="card-text"><small class="text-muted">Expires: {{ .Expires.Weekday }}, {{ .Expires.Format "2006-01-02" }}</small></time>
+                <time class="card-text"><small class="text-muted">Created: {{ .Created.Weekday }}, {{ .Created.Format "2006-01-02" }}</small></time>
             </div>
         </div>
-
+    {{ end }}
 {{ else }}
     <p>No snippets available.</p>
 {{ end }}

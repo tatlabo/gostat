@@ -72,7 +72,7 @@ func setHeaders(next http.HandlerFunc) http.HandlerFunc {
 		ctx = context.WithValue(ctx, "title", "Home page")
 
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.Header().Set("Cache-Control", "public, max-age=31536000")
+		w.Header().Set("Cache-Control", "public, max-age=3600")
 		w.Header().Set("Server", "GO-Server/1.0")
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
