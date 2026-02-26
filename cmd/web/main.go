@@ -1,28 +1,41 @@
 package main
 
 import (
-	"context"
 	"flag"
 	"gostats/cmd/internal/database"
 	"gostats/cmd/internal/models"
+	"html/template"
+	"io"
+	"log"
 	"log/slog"
 	"net/http"
 	"os"
+	"time"
 )
 
-type application struct {
+type Application struct {
 	Snippets *models.SnippetModel
 	Snippet  models.Snippet
+	Template func(wr io.Writer, name string, data any) error
 }
 
 func main() {
 
-	app := &application{
+	customTemplate, err := customTemplate()
+	if err != nil {
+		log.Fatal("Error parsing templates: ", err)
+	}
+	customTemplateExecute := customTemplate.ExecuteTemplate
+
+	// app instance with dependencies
+	app := &Application{
 		Snippets: &models.SnippetModel{
 			DB: database.New(),
 		},
-		Snippet: models.Snippet{},
+		Snippet:  models.Snippet{},
+		Template: customTemplateExecute,
 	}
+	//
 
 	var addr = flag.String("addr", ":5000", "HTTP network address")
 
@@ -31,36 +44,38 @@ func main() {
 	flag.Parse()
 
 	logger.Info("starting server", "addr", *addr)
-
-	err := http.ListenAndServe(*addr, app.Routes())
-	if err != nil {
+	//
+	routes := app.Routes()
+	//listen and serve
+	//
+	if err := http.ListenAndServe(*addr, routes); err != nil {
 		logger.Error("server error", "error", err)
 		os.Exit(1)
 	}
 
 }
 
-func (app *application) Routes() *http.ServeMux {
+func (app *Application) Routes() *http.ServeMux {
 
 	mux := http.NewServeMux()
 
 	fs := http.FileServer(http.Dir("static"))
 
-	mux.Handle("/static/", http.StripPrefix("/static/", fs))
-
 	media := http.FileServer(http.Dir("media"))
+
+	mux.Handle("/static/", http.StripPrefix("/static/", fs))
 
 	mux.Handle("/media/", http.StripPrefix("/media/", media))
 
 	mux.HandleFunc("GET /{$}", setHeaders(hello))
 
-	mux.HandleFunc("GET /snippet", setHeaders(app.snippet))
+	mux.HandleFunc("GET /snippet", (app.snippet))
 
-	mux.HandleFunc("GET /snippet/all", setHeaders(app.snippetList))
+	mux.HandleFunc("GET /snippet/all", (app.snippetList))
 
-	mux.HandleFunc("POST /snippet/create", setHeaders(app.snippetCreate))
+	mux.HandleFunc("POST /snippet/create", (app.snippetCreate))
 
-	// mux.HandleFunc("GET /snippet/{id}", setHeaders(snippet))
+	mux.HandleFunc("/", app.notFound)
 
 	return mux
 }
@@ -68,12 +83,37 @@ func (app *application) Routes() *http.ServeMux {
 func setHeaders(next http.HandlerFunc) http.HandlerFunc {
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
-		ctx = context.WithValue(ctx, "title", "Home page")
 
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.Header().Set("Cache-Control", "public, max-age=3600")
 		w.Header().Set("Server", "GO-Server/1.0")
-		next.ServeHTTP(w, r.WithContext(ctx))
+
+		w.Header().Set("Transfer-Encoding", "chunked")
+		next.ServeHTTP(w, r)
 	})
+}
+
+func customTemplate() (*template.Template, error) {
+
+	injectFuncion := template.New("").Funcs(template.FuncMap{
+		"mod": func(i, j int) int {
+			return i % j
+		},
+		"sub": func(i, j int) int {
+			return i - j
+		},
+		"CurrentYear": func() int {
+			return time.Now().Year()
+		},
+		"CurrentDay": func() string {
+			return time.Now().Format("2006-01-02")
+		},
+	})
+
+	parse, err := injectFuncion.ParseGlob("./cmd/ui/html/*.html")
+	if err != nil {
+		return nil, err
+	}
+
+	return parse, nil
 }

@@ -1,27 +1,34 @@
 package main
 
 import (
-	"errors"
+	"context"
 	"fmt"
 	"gostats/cmd/internal/models"
+	"html/template"
 	"net/http"
 	"strconv"
-	"text/template"
 	"time"
 )
 
-var templates = template.Must(template.ParseGlob("./cmd/ui/html/*.html"))
-var tpl = templates.ExecuteTemplate
-
 func hello(w http.ResponseWriter, r *http.Request) {
 
-	var msg msg
+	var render Render
+	render.Msg = make(map[string]string)
 
-	msg.Title = "Snippet Page"
+	render.Msg["Title"] = "Snippet Page"
 
-	msg.Message = "Hello, World! Everyone loves Go!"
+	tmpl := template.Must(
+		template.New("").Funcs(template.FuncMap{
+			"mod": func(i, j int) int {
+				return i % j
+			},
+			"sub": func(i, j int) int {
+				return i - j
+			}}).ParseGlob("./cmd/ui/html/*.html")).ExecuteTemplate
 
-	err := tpl(w, "home.html", msg)
+	render.Msg["Message"] = "Hello, World! Everyone loves Go!"
+
+	err := tmpl(w, "home.html", render)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Unable to render template: %v", err), http.StatusInternalServerError)
 		return
@@ -29,49 +36,64 @@ func hello(w http.ResponseWriter, r *http.Request) {
 
 }
 
-type msg struct {
-	Message string
-	Title   string
+type Render struct {
+	Snippet  models.Snippet
+	Snippets []models.Snippet
+	Msg      map[string]string
 }
 
-func (app *application) snippet(w http.ResponseWriter, r *http.Request) {
+func (app *Application) notFound(w http.ResponseWriter, r *http.Request) {
 
-	var id int
-	var msg msg
-	msg.Title = "Snippet Page"
+	ctx := r.Context()
+	msg, ok := ctx.Value("error").(string)
+	if !ok || msg == "" {
+		msg = "Page not found"
+	}
+	w.WriteHeader(http.StatusNotFound)
+	app.Template(w, "404", Render{Msg: map[string]string{"Message": msg}})
+}
+
+func (app *Application) error500(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+	msg, ok := ctx.Value("error").(string)
+	if !ok || msg == "" {
+		msg = "Internal Server Error"
+
+	}
+	w.WriteHeader(http.StatusInternalServerError)
+	app.Template(w, "500", Render{Msg: map[string]string{"Message": msg}})
+}
+
+func (app *Application) snippet(w http.ResponseWriter, r *http.Request) {
+
+	m := map[string]string{
+		"Title": "Snnippet page",
+	}
 
 	idUrl := r.URL.Query().Get("id")
 	id, err := strconv.Atoi(idUrl)
 
 	if id == 0 || err != nil {
-		msg.Message = "Snnippet page"
-		tpl(w, "home.html", msg)
+		app.Template(w, "home.html", Render{Msg: m})
 		return
 	}
 
 	res, err := app.Snippets.Get(id)
 	if err != nil {
-		if errors.Is(err, models.ErrNoRecord) {
-			http.NotFound(w, r)
-			return
-		}
-		fmt.Printf("ERROR fetching snippet: %v\n", err)
-		http.Error(w, fmt.Sprintf("Unable to fetch snippet: %v", err), http.StatusInternalServerError)
+
+		ctx := r.Context()
+		ctx = context.WithValue(ctx, "error", fmt.Sprintf("Unable to find snippet %d: %v", id, err))
+		r = r.WithContext(ctx)
+		app.notFound(w, r)
+
 		return
 	}
 
-	type SnippetData struct {
-		Snippet models.Snippet
-		Title   string
-		Msg     string
-	}
+	m["Message"] = "Snnippet page nr " + strconv.Itoa(id)
+	//
 
-	var data SnippetData
-	data.Snippet = *res
-	data.Title = "Snippet Page"
-
-	data.Msg = "Snnippet page nr " + strconv.Itoa(id)
-	err = tpl(w, "snippet.html", data)
+	err = app.Template(w, "snippet.html", Render{Msg: m, Snippet: *res})
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Unable to render template: %v", err), http.StatusInternalServerError)
 		return
@@ -79,19 +101,12 @@ func (app *application) snippet(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func (app *application) snippetList(w http.ResponseWriter, r *http.Request) {
+func (app *Application) snippetList(w http.ResponseWriter, r *http.Request) {
 
-	var msg msg
-	msg.Title = "Snippet Page"
-	msg.Message = "Snnippet list page"
-
-	type Render struct {
-		Snippets []models.Snippet
-		Title    string
-		Msg      string
+	m := map[string]string{
+		"Title":   "Snippet List Page",
+		"Message": "Snippet list page",
 	}
-
-	var render Render
 
 	res, err := app.Snippets.Latest()
 	if err != nil {
@@ -100,10 +115,9 @@ func (app *application) snippetList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	render.Snippets = res
-	render.Title = "Snippet List Page"
-	render.Msg = "Snippet list page"
-	err = tpl(w, "snippet_list.html", render)
+	//
+	err = app.Template(w, "snippet_list.html", Render{Msg: m, Snippets: res})
+	//
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Unable to render template: %v", err), http.StatusInternalServerError)
 		return
@@ -111,28 +125,32 @@ func (app *application) snippetList(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func (app *application) snippetCreate(w http.ResponseWriter, r *http.Request) {
+func (app *Application) snippetCreate(w http.ResponseWriter, r *http.Request) {
 
-	var s = app.Snippet
+	s := app.Snippet
+	//
 	s.Title = r.FormValue("title")
 	s.Content = r.FormValue("content")
 	expires, err := time.Parse("2006-01-02", r.FormValue("expires"))
+	//
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Invalid date format: %v", err), http.StatusBadRequest)
+
+		ctx := r.Context()
+		ctx = context.WithValue(ctx, "error", fmt.Sprintf("Unable to inseet:  %v", err))
+		r = r.WithContext(ctx)
+		app.error500(w, r)
+
 		return
+
 	}
 	s.Expires = expires
 
 	res, err := app.Snippets.Insert(&s)
 	if err != nil {
-		fmt.Printf("ERROR inserting snippet: %v\n", err)
-		http.Error(w, fmt.Sprintf("Unable to create snippet: %v", err), http.StatusInternalServerError)
+		msg := fmt.Sprintf("ERROR inserting snippet: %v\n%v\n", *res, err)
+		http.Error(w, msg, http.StatusInternalServerError)
 		return
 	}
-
-	var msg msg
-	msg.Title = "Snippet Page"
-	msg.Message = fmt.Sprintf("ID: %d, Title: %s, Content: %s, Expires: %v\n", *res, s.Title, s.Content, s.Expires)
 
 	http.Redirect(w, r, fmt.Sprintf("/snippet?id=%d", *res), http.StatusSeeOther)
 

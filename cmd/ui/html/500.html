@@ -1,0 +1,19 @@
+{{define "500"}}
+
+{{ template "head" . }}
+
+<div class="container-md">
+  <div class="col-md-12 text-center">
+    <h1>404</h1>
+    <h2>Page Not Found</h2>
+      {{ if .Msg }}
+      <p>{{ .Msg.Message }}</p>
+      {{ else }}
+      <p>Sorry, the page you're looking for doesn't exist.</p>
+      {{ end }}
+  </div>
+</div>
+
+{{ template "footer" . }}
+
+{{end}}
