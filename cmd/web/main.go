@@ -93,9 +93,9 @@ func setHeaders(next http.HandlerFunc) http.HandlerFunc {
 	})
 }
 
-func customTemplate() (*template.Template, error) {
+var funcMap = func() template.FuncMap {
 
-	injectFuncion := template.New("").Funcs(template.FuncMap{
+	return template.FuncMap{
 		"mod": func(i, j int) int {
 			return i % j
 		},
@@ -108,9 +108,12 @@ func customTemplate() (*template.Template, error) {
 		"CurrentDay": func() string {
 			return time.Now().Format("2006-01-02")
 		},
-	})
+	}
+}
 
-	parse, err := injectFuncion.ParseGlob("./cmd/ui/html/*.html")
+func customTemplate() (*template.Template, error) {
+
+	parse, err := template.New("").Funcs(funcMap()).ParseGlob("./cmd/ui/html/*.html")
 	if err != nil {
 		return nil, err
 	}

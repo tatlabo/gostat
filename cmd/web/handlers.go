@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"gostats/cmd/internal/models"
-	"html/template"
 	"net/http"
 	"strconv"
 	"time"
@@ -13,22 +12,20 @@ import (
 func hello(w http.ResponseWriter, r *http.Request) {
 
 	var render Render
-	render.Msg = make(map[string]string)
+	render.Msg = map[string]string{
+		"Title":   "Snippet Page",
+		"Message": "Hello, World! Everyone loves Go!",
+	}
 
-	render.Msg["Title"] = "Snippet Page"
+	customTpl, err := customTemplate()
+	tmpl := customTpl.ExecuteTemplate
 
-	tmpl := template.Must(
-		template.New("").Funcs(template.FuncMap{
-			"mod": func(i, j int) int {
-				return i % j
-			},
-			"sub": func(i, j int) int {
-				return i - j
-			}}).ParseGlob("./cmd/ui/html/*.html")).ExecuteTemplate
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Error parsing templates: %v", err), http.StatusInternalServerError)
+		return
+	}
 
-	render.Msg["Message"] = "Hello, World! Everyone loves Go!"
-
-	err := tmpl(w, "home.html", render)
+	err = tmpl(w, "home.html", render)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Unable to render template: %v", err), http.StatusInternalServerError)
 		return

@@ -1,4 +1,7 @@
 /* style */
 
-
+@view-transition {
+  navigation: auto;
+  types: slide;
+}
 
