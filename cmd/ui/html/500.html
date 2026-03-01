@@ -2,10 +2,12 @@
 
 {{ template "head" . }}
 
+
 <div class="container-md">
+  {{ template "navbar" . }}
   <div class="col-md-12 text-center">
-    <h1>404</h1>
-    <h2>Page Not Found</h2>
+    <h1>500</h1>
+    <h2>Internal Error</h2>
       {{ if .Msg }}
       <p>{{ .Msg.Message }}</p>
       {{ else }}

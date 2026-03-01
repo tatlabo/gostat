@@ -1,7 +1,9 @@
 package main
 
 import (
+	"context"
 	"flag"
+	"fmt"
 	"gostats/cmd/internal/database"
 	"gostats/cmd/internal/models"
 	"html/template"
@@ -11,12 +13,18 @@ import (
 	"net/http"
 	"os"
 	"time"
+
+	"github.com/gorilla/sessions"
 )
+
+// Key should be 32 or 64 bytes for AES-256
+var store = sessions.NewCookieStore([]byte("your-secret-key-change-in-production"))
 
 type Application struct {
 	Snippets *models.SnippetModel
 	Snippet  models.Snippet
 	Template func(wr io.Writer, name string, data any) error
+	Session  *sessions.CookieStore
 }
 
 func main() {
@@ -34,6 +42,7 @@ func main() {
 		},
 		Snippet:  models.Snippet{},
 		Template: customTemplateExecute,
+		Session:  store,
 	}
 	//
 
@@ -55,7 +64,7 @@ func main() {
 
 }
 
-func (app *Application) Routes() *http.ServeMux {
+func (app *Application) Routes() http.Handler {
 
 	mux := http.NewServeMux()
 
@@ -67,28 +76,64 @@ func (app *Application) Routes() *http.ServeMux {
 
 	mux.Handle("/media/", http.StripPrefix("/media/", media))
 
-	mux.HandleFunc("GET /{$}", setHeaders(hello))
+	mux.Handle("GET /{$}", setHeaderFunc(hello))
 
-	mux.HandleFunc("GET /snippet", (app.snippet))
+	mux.Handle("GET /snippet", setHeaderFunc(app.snippet))
 
-	mux.HandleFunc("GET /snippet/all", (app.snippetList))
+	mux.Handle("GET /snippet/all", setHeaderFunc(app.snippetList))
 
-	mux.HandleFunc("POST /snippet/create", (app.snippetCreate))
+	mux.Handle("POST /snippet/create", setHeaderFunc(app.snippetCreate))
 
-	mux.HandleFunc("/", app.notFound)
+	mux.Handle("POST /snippet/delete", setHeaderFunc(app.snippetDelete))
 
-	return mux
+	mux.Handle("/", setHeaderFunc(app.notFound))
+
+	return app.recoverPanic(app.logRequest(mux))
 }
 
-func setHeaders(next http.HandlerFunc) http.HandlerFunc {
+func setHeaderFunc(next http.HandlerFunc) http.HandlerFunc {
+
+	fn := func(w http.ResponseWriter, r *http.Request) {
+		for key, value := range ResponseHeaders {
+			w.Header().Set(key, value)
+		}
+
+		next.ServeHTTP(w, r)
+	}
+
+	return fn
+}
+
+func setHeaders(next http.Handler) http.Handler {
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.Header().Set("Cache-Control", "public, max-age=3600")
-		w.Header().Set("Server", "GO-Server/1.0")
+		for key, value := range ResponseHeaders {
+			w.Header().Set(key, value)
+		}
+		next.ServeHTTP(w, r)
+	})
 
-		w.Header().Set("Transfer-Encoding", "chunked")
+}
+
+var ResponseHeaders = map[string]string{
+	"Content-Security-Policy": "default-src 'self'; style-src 'self' fonts.googleapis.com cdn.jsdelivr.net; font-src fonts.gstatic.com; script-src 'self' cdn.jsdelivr.net; img-src 'self' data:;",
+	"Referrer-Policy":         "origin-when-cross-origin",
+	"X-Content-Type-Options":  "nosniff",
+	"X-Frame-Options":         "deny",
+	"X-XSS-Protection":        "0",
+
+	"Server": "Go",
+
+	"Content-Type":  "text/html; charset=utf-8",
+	"Cache-Control": "public, max-age=3600",
+
+	"Transfer-Encoding": "chunked",
+}
+
+func myMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// TODO: Execute our middleware logic here...
 		next.ServeHTTP(w, r)
 	})
 }
@@ -119,4 +164,39 @@ func customTemplate() (*template.Template, error) {
 	}
 
 	return parse, nil
+}
+
+func (app *Application) logRequest(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var (
+			ip     = r.RemoteAddr
+			proto  = r.Proto
+			method = r.Method
+			path   = r.URL.RequestURI()
+		)
+
+		slog.Info("Received request", "ip", ip, "proto", proto, "method", method, "path", path)
+
+		next.ServeHTTP(w, r)
+
+	})
+}
+
+func (app *Application) recoverPanic(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+		defer func() {
+			if err := recover(); err != nil {
+				msg := fmt.Sprintf("%v", err)
+				log.Printf("%v", err)
+				ctx := r.Context()
+				ctx = context.WithValue(ctx, "error", msg)
+				r = r.WithContext(ctx)
+				app.error500(w, r)
+			}
+		}()
+
+		next.ServeHTTP(w, r)
+
+	})
 }

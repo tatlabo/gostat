@@ -7,31 +7,41 @@
     </h1>
 
     {{ template "navbar" . }}
+
     {{ block "snippet-form" . }}
-    <form method="post" action="/snippet/create" class="my-5">
-        <div class="form-row">
-            <div class="form-group mb-3">
-                <label for="title">Title</label>
-                <input type="text" name="title" class="form-control" id="title" aria-describedby="titleHelp"
-                    placeholder="title" required>
-                <small id="titleHelp" class="form-text text-muted">Snippet title</small>
+    <details>
+        <summary>Create a new snippet</summary>
+        <form method="post" action="/snippet/create" class="my-5">
+            <div class="form-row">
+                <div class="form-group mb-3">
+                    <label for="title">Title</label>
+                    <input type="text" name="title" class="form-control" id="title" aria-describedby="titleHelp"
+                        placeholder="title" required>
+                    <small id="titleHelp" class="form-text text-muted">Snippet title</small>
+                </div>
+                <div class="form-group mb-3">
+                    <label for="content">Content</label>
+                    <textarea name="content" class="form-control" id="content" placeholder="Content"
+                        required></textarea>
+                    <small id="contentHelp" class="form-text text-muted">Snippet content</small>
+                </div>
+                <div class="form-group mb-3">
+                    <label for="expires">Date:</label>
+                    <input type="date" id="expires" name="expires" value="{{ CurrentDay }}" min="{{ CurrentDay }}"
+                        max="2030-12-31" required>
+                    <small id="expiresHelp" class="form-text text-muted">Snippet expiration date</small>
+                </div>
+                <div>
+                    <label>Delete in:</label>
+                    <input type='radio' name='expires' value='365' checked> One Year
+                    <input type='radio' name='expires' value='7'> One Week
+                    <input type='radio' name='expires' value='1'> One Day
+                </div>
             </div>
-            <div class="form-group mb-3">
-                <label for="content">Content</label>
-                <textarea name="content" class="form-control" id="content" placeholder="Content" required></textarea>
-                <small id="contentHelp" class="form-text text-muted">Snippet content</small>
-            </div>
-            <div class="form-group mb-3">
-                <label for="expires">Date:</label>
-                <input type="date" id="expires" name="expires" value="{{ CurrentDay }}" min="{{ CurrentDay }}" max="2030-12-31"
-                    required />
-                <small id="expiresHelp" class="form-text text-muted">Snippet expiration date</small>
-            </div>
-        </div>
-        <button type="submit" class="btn btn-primary my-4">Submit</button>
-    </form>
+            <button type="submit" class="btn btn-primary my-4">Submit</button>
+        </form>
+    </details>
     {{ end }}
 
 </div>
 {{ template "footer" . }}
-

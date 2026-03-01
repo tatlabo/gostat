@@ -8,14 +8,16 @@
     {{ or .Msg.Message }}
 </h2>
 
+
 {{ template "snippet-form" . }}
+
 
 {{ if .Snippet }} 
     {{ with .Snippet }} 
         <div class="card mb-3">
             <div class="card-body">
                 <h5 class="card-title">{{ .Title }}</h5>
-                <p class="card-text">{{ .Content }}</p> 
+                <div class="card-text">{{ or .Html .Content }}</div>
                 <time class="card-text"><small class="text-muted">Expires: {{ .Expires.Weekday }}, {{ .Expires.Format "2006-01-02" }}</small></time>
                 <time class="card-text"><small class="text-muted">Created: {{ .Created.Weekday }}, {{ .Created.Format "2006-01-02" }}</small></time>
             </div>

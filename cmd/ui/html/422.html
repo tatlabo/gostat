@@ -1,0 +1,21 @@
+{{define "422"}}
+
+{{ template "head" . }}
+
+
+<div class="container-md">
+  {{ template "navbar" . }}
+  <div class="col-md-12 text-center">
+    <h1>422</h1>
+    <h2>Unprocessable Entity</h2>
+      {{ if .Msg }}
+      <p>{{ .Msg.Message }}</p>
+      {{ else }}
+      <p>Sorry, the request could not be processed.</p>
+      {{ end }}
+
+  </div>
+</div>
+
+{{ template "footer" . }}
+{{end}}

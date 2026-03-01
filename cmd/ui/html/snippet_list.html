@@ -1,58 +1,65 @@
-
 {{ template "head" . }}
 <div class="container-md">
 
-{{ template "navbar" . }}
+    {{ template "navbar" . }}
 
-{{ template "snippet-form" . }}
+    <h2>
+        {{ or .Msg.Deleted }}
+    </h2>
 
+    {{ template "snippet-form" . }}
 
-
-{{ if .Snippets}} 
+    {{ if .Snippets}}
 
 
     {{ $len := len .Snippets }}
     {{ range $index, $snippet := .Snippets }}
     <!-- 3 columns -->
-     {{ $nrOfColumns := 3 }}
-    {{ $col := mod $index $nrOfColumns }} 
-    {{ if eq $col 0 }} 
-<div class="row">
-    {{ end }}
+    {{ $nrOfColumns := 3 }}
+    {{ $col := mod $index $nrOfColumns }}
+    {{ if eq $col 0 }}
+    <div class="row">
+        {{ end }}
 
-    <div class="col">
-        <div class="card mb-3 my-3">
-            <div class="card-body">
-                <h5 class="card-title"><a href="/snippet?id={{ .ID }}">{{ .Title }}</a></h5>
-                <p class="card-text">{{ .Content }}</p> 
-                <time class="card-text"><small class="text-muted">Expires: {{ .Expires.Weekday }}, {{ .Expires.Format "2006-01-02" }}</small></time>
-                <time class="card-text"><small class="text-muted">Created: {{ .Created.Weekday }}, {{ .Created.Format "2006-01-02" }}</small></time>
+        <div class="col">
+            <div class="card mb-3 my-3">
+                <div class="card-body">
+                    <h5 class="card-title"><a href="/snippet?id={{ .ID }}">{{ .Title }}</a></h5>
+                    <div class="card-text">{{ or .Html .Content }}</div>
+                    <time class="card-text"><small class="text-muted">Expires: {{ .Expires.Weekday }}, {{
+                            .Expires.Format "2006-01-02" }}</small></time>
+                    <time class="card-text"><small class="text-muted">Created: {{ .Created.Weekday }}, {{
+                            .Created.Format "2006-01-02" }}</small></time>
+                    <form method="post" action="/snippet/delete">
+                        <input type="hidden" name="id" value="{{ .ID }}">
+                        <button type="submit" class="btn btn-danger my-2">Delete</button>
+                    </form>
+                </div>
             </div>
         </div>
+
+        {{ if eq $col (sub $nrOfColumns 1) }}
     </div>
-
-    {{ if eq $col (sub $nrOfColumns 1) }}
-</div>    
     {{ else if eq $index (sub $len 1) }}
-</div>    
-    {{ end }}
+</div>
+{{ end }}
 
-    
-    
+
+
 {{ end }}
 
 
 
 
 {{ else }}
-        <p>No snippets available.</p>
+<p>No snippets available.</p>
 {{ end }}
 </div>
 {{ template "footer" . }}
 
 
 
-	<!-- tpl := template.Must(template.New("").Funcs(template.FuncMap{
+<!-- tpl := template.Must(template.New("").Funcs(template.FuncMap{
 		"formatDate": func(t any) string {
 			if date, ok := t.(string); ok {
 				return date

@@ -4,15 +4,18 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"gostats/cmd/internal/highlight"
+	"html/template"
 	"time"
 )
 
 type Snippet struct {
-	ID      int       `db:"id" json:"id"`
-	Title   string    `db:"title" json:"title"`
-	Content string    `db:"content" json:"content"`
-	Created time.Time `db:"created" json:"created"`
-	Expires time.Time `db:"expires" json:"expires"`
+	ID      int           `db:"id" json:"id"`
+	Title   string        `db:"title" json:"title"`
+	Content string        `db:"content" json:"content"`
+	Created time.Time     `db:"created" json:"created"`
+	Expires time.Time     `db:"expires" json:"expires"`
+	Html    template.HTML `db:"-" json:"html"`
 }
 
 type SnippetModel struct {
@@ -24,16 +27,40 @@ func (m *SnippetModel) Insert(s *Snippet) (*int, error) {
 	stmt := `INSERT INTO snippets (title, content, expires, created) 
 		VALUES ($1, $2, to_date($3, 'YYYY-MM-DD'), NOW()) RETURNING id;`
 
-	fmt.Printf("\n%#v\n", s)
-
 	var id int
 	err := m.DB.QueryRow(stmt, s.Title, s.Content, s.Expires).Scan(&id)
-	fmt.Printf("stmt:\n %s, %s, %s, %v\n", stmt, s.Title, s.Content, s.Expires)
+
 	if err != nil {
 		return nil, err
 	}
 
 	return &id, nil
+}
+
+func (m *SnippetModel) Delete(s *Snippet) (Snippet, error) {
+
+	stmt := `--sql
+		DELETE FROM snippets WHERE id = $1 RETURNING title, content, expires, created;`
+
+	err := m.DB.QueryRow(stmt, s.ID).Scan(&s.Title, &s.Content, &s.Expires, &s.Created)
+
+	if err != nil {
+		return Snippet{}, err
+	}
+
+	return *s, nil
+}
+
+func (s *Snippet) HighlightSnippet() (err error) {
+
+	html, err := highlight.Highlight(s.Content)
+	s.Html = template.HTML(html)
+
+	if err != nil {
+		return fmt.Errorf("error highlighting snippet content: %v", err)
+	}
+
+	return nil
 }
 
 func (m *SnippetModel) Get(id int) (*Snippet, error) {
