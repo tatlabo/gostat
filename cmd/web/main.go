@@ -78,6 +78,8 @@ func (app *Application) Routes() http.Handler {
 
 	mux.Handle("GET /{$}", setHeaderFunc(hello))
 
+	// Snippet routes
+
 	mux.Handle("GET /snippet", setHeaderFunc(app.snippet))
 
 	mux.Handle("GET /snippet/all", setHeaderFunc(app.snippetList))
@@ -85,6 +87,8 @@ func (app *Application) Routes() http.Handler {
 	mux.Handle("POST /snippet/create", setHeaderFunc(app.snippetCreate))
 
 	mux.Handle("POST /snippet/delete", setHeaderFunc(app.snippetDelete))
+
+	// Default route for 404
 
 	mux.Handle("/", setHeaderFunc(app.notFound))
 

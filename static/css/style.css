@@ -3,3 +3,6 @@
   types: slide;
 }
 
+#content {
+  min-height: 10rem;
+}
