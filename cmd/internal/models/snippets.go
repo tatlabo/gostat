@@ -16,6 +16,7 @@ type Snippet struct {
 	Created time.Time     `db:"created" json:"created"`
 	Expires time.Time     `db:"expires" json:"expires"`
 	Html    template.HTML `db:"-" json:"html"`
+	Validator
 }
 
 type SnippetModel struct {

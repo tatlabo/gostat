@@ -36,16 +36,21 @@ func (app *Application) GetFlash(w http.ResponseWriter, r *http.Request, key str
 	return fmt.Sprintf("%v", flashes[0])
 }
 
-func Highlight(someSourceCode string) (string, error) {
+func Highlight(source string) (string, error) {
 
 	var s strings.Builder
 
-	lexer := lexers.Get("go")
+	lexer := lexers.Match(source)
+
+	if lexer == nil {
+		lexer = lexers.Get("go")
+	}
+
 	if lexer == nil {
 		return "", fmt.Errorf("lexer not found for 'go'")
 	}
 
-	tokens, err := lexer.Tokenise(nil, someSourceCode)
+	tokens, err := lexer.Tokenise(nil, source)
 	if err != nil {
 		return "", fmt.Errorf("error tokenizing: %v", err)
 	}
@@ -54,7 +59,7 @@ func Highlight(someSourceCode string) (string, error) {
 
 	style := styles.Get("friendly")
 	if style == nil {
-		return "", fmt.Errorf("style 'friendly' not found")
+		return "", fmt.Errorf("style 'manni' not found")
 	}
 
 	err = formatter.Format(&s, style, tokens)
@@ -64,4 +69,3 @@ func Highlight(someSourceCode string) (string, error) {
 
 	return s.String(), nil
 }
-

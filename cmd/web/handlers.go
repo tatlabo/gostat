@@ -5,12 +5,10 @@ import (
 	"fmt"
 	"gostats/cmd/internal/models"
 	"html/template"
-	"log"
 	"maps"
 	"net/http"
 	"strconv"
 	"time"
-	"unicode/utf8"
 )
 
 func hello(w http.ResponseWriter, r *http.Request) {
@@ -172,72 +170,58 @@ func (app *Application) snippetList(w http.ResponseWriter, r *http.Request) {
 
 }
 
+// end of snippet form
+
 func (app *Application) snippetCreate(w http.ResponseWriter, r *http.Request) {
 
-	s := app.Snippet
-
-	msg := map[string]string{}
+	var fs FormSnippet
 
 	err := r.ParseForm()
 	if err != nil {
-		msg["Error"] = fmt.Sprintf("Error parsing form: %v", err)
+		fs.AddError("Error", fmt.Sprintf("Error parsing form: %v", err))
 		ctx := r.Context()
-		ctx = context.WithValue(ctx, "error", msg)
+		ctx = context.WithValue(ctx, "error", fs.FieldError)
 		r = r.WithContext(ctx)
 		app.snippetList(w, r)
 		return
 	}
 
-	s.Title = r.PostForm.Get("title")
-	s.Content = r.PostForm.Get("content")
-	expires, _ := time.Parse("2006-01-02", r.PostForm.Get("expires"))
-	//
+	fs.Title = r.PostForm.Get("title")
+	fs.Content = r.PostForm.Get("content")
+	fs.Expires, _ = time.Parse("2006-01-02", r.PostForm.Get("expires"))
 
-	// basic validation
+	fs.CheckForm()
+	s := app.Snippet
 
-	if len(s.Title) == 0 {
-		msg["ErrorTitle"] = "Title is required"
-	} else if utf8.RuneCountInString(s.Title) > 200 {
-		msg["ErrorTitle"] = "Title must be less than 200 characters"
-	}
+	if len(fs.FieldError) > 0 {
+		fs.FormSendBack()
+		if content, ok := fs.FieldError["BackContent"]; ok == true {
+			html, err := Highlight(content)
+			if err != nil {
+				fmt.Printf("ERROR Highlight Snippet snippets: %v\n", err)
+				http.Error(w, fmt.Sprintf("Unable highlight snippets: %v", err), http.StatusInternalServerError)
+				return
+			}
+			s.Html = template.HTML(html)
+		}
 
-	if len(s.Content) == 0 {
-		msg["ErrorContent"] = "Content is required"
-	} else if utf8.RuneCountInString(s.Content) > 10000 {
-		msg["ErrorContent"] = "Content must be less than 10000 characters"
-	}
-
-	if expires.IsZero() {
-		msg["ErrorDate"] = "Date is required"
-	}
-
-	log.Printf("Validation errors: %v\n", msg)
-	// basic validation for errors
-
-	if len(msg) > 0 {
-		msg["Error"] = "Error parsing form"
-		msg["BackTitle"] = template.HTMLEscapeString(s.Title)
-		msg["BackContent"] = template.HTMLEscapeString(s.Content)
-		msg["BackDate"] = expires.Format("2006-01-02")
 		ctx := r.Context()
-		ctx = context.WithValue(ctx, "error", msg)
+		ctx = context.WithValue(ctx, "error", fs.FieldError)
 		r = r.WithContext(ctx)
 		app.snippetList(w, r)
 		return
 	}
 
-	// end basic validation
-
-	s.Expires = expires
+	s.Title = fs.Title
+	s.Content = fs.Content
+	s.Expires = fs.Expires
 
 	res, err := app.Snippets.Insert(&s)
 	if err != nil {
-		msg["Error"] = fmt.Sprintf("ERROR inserting snippet: %v\n%v\n", *res, err)
-		http.Error(w, msg["Error"], http.StatusInternalServerError)
+		fs.FieldError["Error"] = fmt.Sprintf("ERROR inserting snippet: %v\n%v\n", *res, err)
+		http.Error(w, fs.FieldError["Error"], http.StatusInternalServerError)
 		return
 	}
-
-	clear(msg)
 
 	// http.Redirect(w, r, fmt.Sprintf("/snippet?id=%d", *res), http.StatusSeeOther)
 	http.Redirect(w, r, "/snippet/all", http.StatusSeeOther)
