@@ -40,15 +40,13 @@ func Highlight(source string) (string, error) {
 
 	var s strings.Builder
 
-	lexer := lexers.Match(source)
-
+	lexer := lexers.Analyse(source)
 	if lexer == nil {
-		lexer = lexers.Get("go")
+		lexer = lexers.Get("go") // Use plain text fallback
 	}
-
-	if lexer == nil {
-		return "", fmt.Errorf("lexer not found for 'go'")
-	}
+	// if lexer == nil {
+	// 	return "", fmt.Errorf("lexer not found for 'go'")
+	// }
 
 	tokens, err := lexer.Tokenise(nil, source)
 	if err != nil {
@@ -57,9 +55,9 @@ func Highlight(source string) (string, error) {
 
 	formatter := html.New(html.WithLineNumbers(false), html.WithClasses(true), html.TabWidth(4))
 
-	style := styles.Get("friendly")
+	style := styles.Get("github")
 	if style == nil {
-		return "", fmt.Errorf("style 'manni' not found")
+		style = styles.Fallback // Use plain text fallback
 	}
 
 	err = formatter.Format(&s, style, tokens)

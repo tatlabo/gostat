@@ -18,7 +18,7 @@ import (
 )
 
 // Key should be 32 or 64 bytes for AES-256
-var store = sessions.NewCookieStore([]byte("your-secret-key-change-in-production"))
+var store = sessions.NewCookieStore([]byte("67d91ab19dfc349e8d6693827c10373bde90bf03c51c5c9727ba1488b8573b9f"))
 
 type Application struct {
 	Snippets *models.SnippetModel

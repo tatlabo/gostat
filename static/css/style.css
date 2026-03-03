@@ -6,3 +6,8 @@
 #content {
   min-height: 10rem;
 }
+
+code  * {
+
+  word-wrap: break-word;
+}

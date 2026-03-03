@@ -159,6 +159,8 @@ func (app *Application) snippetList(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		s.Html = template.HTML(html)
+		// temporary
+		// s.Html = template.HTML(s.Content)
 	}
 	//
 	err = app.Template(w, "snippet_list.html", Render{Msg: m, Snippets: res})
@@ -195,15 +197,17 @@ func (app *Application) snippetCreate(w http.ResponseWriter, r *http.Request) {
 
 	if len(fs.FieldError) > 0 {
 		fs.FormSendBack()
-		if content, ok := fs.FieldError["BackContent"]; ok == true {
-			html, err := Highlight(content)
-			if err != nil {
-				fmt.Printf("ERROR Highlight Snippet snippets: %v\n", err)
-				http.Error(w, fmt.Sprintf("Unable highlight snippets: %v", err), http.StatusInternalServerError)
-				return
-			}
-			s.Html = template.HTML(html)
-		}
+		// if content, ok := fs.FieldError["BackContent"]; ok == true {
+		// 	html, err := Highlight(content)
+
+		// 	if err != nil {
+		// 		fmt.Printf("ERROR Highlight Snippet snippets: %v\n", err)
+		// 		http.Error(w, fmt.Sprintf("Unable highlight snippets: %v", err), http.StatusInternalServerError)
+		// 		return
+		// 	}
+		// 	s.Html = template.HTML(html)
+		// 	// temporary
+		// }
 
 		ctx := r.Context()
 		ctx = context.WithValue(ctx, "error", fs.FieldError)
