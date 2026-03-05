@@ -12,6 +12,7 @@ require (
 )
 
 require (
+	github.com/alexedwards/scs/v2 v2.9.0 // indirect
 	github.com/dlclark/regexp2 v1.11.5 // indirect
 	github.com/gorilla/securecookie v1.1.2 // indirect
 )
