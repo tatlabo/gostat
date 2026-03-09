@@ -3,9 +3,14 @@
 
     {{ template "navbar" . }}
 
-    <h2>
-        {{ or .Msg.Deleted }}
-    </h2>
+    <div>
+        <span>
+            {{ or .Msg.Flash }}
+        </span>
+        <span>
+            {{ or .Msg.FlashTime }}
+        </span>
+    </div>
 
     {{ template "snippet-form" . }}
 
@@ -20,7 +25,6 @@
     {{ if eq $col 0 }}
     <div class="row">
         {{ end }}
-
         <div class="col">
             <div class="card mb-3 my-3">
                 <div class="card-body">

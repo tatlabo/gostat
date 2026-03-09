@@ -8,6 +8,7 @@ import (
 	"maps"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -139,8 +140,16 @@ func (app *Application) snippetList(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get flash message if any
-	if flash := app.GetFlash(w, r, "success"); flash != "" {
-		m["Deleted"] = flash
+	// if flash := app.GetFlash(w, r, "success"); flash != "" {
+	// 	m["Deleted"] = flash
+	// }
+
+	flash := app.newTemplateData(r)
+	// flash := app.sessionManager.GetString(r.Context(), "flash")
+
+	if flash.Flash != "" {
+		m["Flash"] = flash.Flash
+		m["FlashTime"] = flash.Time.Format("2006-01-02 15:04:05")
 	}
 
 	res, err := app.Snippets.Latest()
@@ -197,17 +206,6 @@ func (app *Application) snippetCreate(w http.ResponseWriter, r *http.Request) {
 
 	if len(fs.FieldError) > 0 {
 		fs.FormSendBack()
-		// if content, ok := fs.FieldError["BackContent"]; ok == true {
-		// 	html, err := Highlight(content)
-
-		// 	if err != nil {
-		// 		fmt.Printf("ERROR Highlight Snippet snippets: %v\n", err)
-		// 		http.Error(w, fmt.Sprintf("Unable highlight snippets: %v", err), http.StatusInternalServerError)
-		// 		return
-		// 	}
-		// 	s.Html = template.HTML(html)
-		// 	// temporary
-		// }
 
 		ctx := r.Context()
 		ctx = context.WithValue(ctx, "error", fs.FieldError)
@@ -227,7 +225,13 @@ func (app *Application) snippetCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// http.Redirect(w, r, fmt.Sprintf("/snippet?id=%d", *res), http.StatusSeeOther)
+	okMsg := strings.Builder{}
+	okMsg.WriteString("Snippet ")
+	okMsg.WriteString(s.Title)
+	okMsg.WriteString(" created successfully")
+
+	app.sessionManager.Put(r.Context(), "flash", okMsg.String())
+
 	http.Redirect(w, r, "/snippet/all", http.StatusSeeOther)
 
 }
@@ -260,7 +264,7 @@ func (app *Application) snippetDelete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Set flash message for redirect
-	app.SetFlash(w, r, "success", "Snippet "+sDeleteted.Title+" deleted")
+	app.sessionManager.Put(r.Context(), "flash", "Snippet "+sDeleteted.Title+" deleted successfully")
 
 	http.Redirect(w, r, "/snippet/all", http.StatusSeeOther)
 

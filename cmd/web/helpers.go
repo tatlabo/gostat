@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"net/http"
 	"strings"
 
 	"github.com/alecthomas/chroma/v2/formatters/html"
@@ -11,30 +10,6 @@ import (
 )
 
 // Flash message helpers
-const sessionName = "flash-session"
-
-func (app *Application) SetFlash(w http.ResponseWriter, r *http.Request, key, value string) error {
-	session, err := app.Session.Get(r, sessionName)
-	if err != nil {
-		return err
-	}
-	session.AddFlash(value, key)
-	return session.Save(r, w)
-}
-
-func (app *Application) GetFlash(w http.ResponseWriter, r *http.Request, key string) string {
-	session, err := app.Session.Get(r, sessionName)
-	if err != nil {
-		return ""
-	}
-	flashes := session.Flashes(key)
-	if len(flashes) == 0 {
-		return ""
-	}
-	// Save to clear the flash
-	session.Save(r, w)
-	return fmt.Sprintf("%v", flashes[0])
-}
 
 func Highlight(source string) (string, error) {
 

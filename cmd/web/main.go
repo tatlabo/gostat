@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"flag"
 	"fmt"
 	"gostats/cmd/internal/database"
@@ -14,17 +15,34 @@ import (
 	"os"
 	"time"
 
+	"github.com/alexedwards/scs/postgresstore"
+	"github.com/alexedwards/scs/v2"
 	"github.com/gorilla/sessions"
+
+	_ "github.com/lib/pq"
 )
 
 // Key should be 32 or 64 bytes for AES-256
 var store = sessions.NewCookieStore([]byte("67d91ab19dfc349e8d6693827c10373bde90bf03c51c5c9727ba1488b8573b9f"))
 
 type Application struct {
-	Snippets *models.SnippetModel
-	Snippet  models.Snippet
-	Template func(wr io.Writer, name string, data any) error
-	Session  *sessions.CookieStore
+	DB             *sql.DB
+	Snippets       *models.SnippetModel
+	Snippet        models.Snippet
+	Template       func(wr io.Writer, name string, data any) error
+	sessionManager *scs.SessionManager
+}
+
+type flashMsg struct {
+	Flash string
+	Time  time.Time
+}
+
+func (app *Application) newTemplateData(r *http.Request) flashMsg {
+	return flashMsg{
+		Flash: app.sessionManager.PopString(r.Context(), "flash"),
+		Time:  time.Now(),
+	}
 }
 
 func main() {
@@ -37,16 +55,23 @@ func main() {
 
 	// app instance with dependencies
 	app := &Application{
+		DB: database.New(),
 		Snippets: &models.SnippetModel{
 			DB: database.New(),
 		},
-		Snippet:  models.Snippet{},
-		Template: customTemplateExecute,
-		Session:  store,
+		Snippet:        models.Snippet{},
+		Template:       customTemplateExecute,
+		sessionManager: scs.New(),
 	}
-	//
 
+	app.sessionManager.Store = postgresstore.New(app.DB)
+	app.sessionManager.Lifetime = 1 * time.Hour
+	//
+	// default addr
+	//
 	var addr = flag.String("addr", ":5000", "HTTP network address")
+	//
+	//
 
 	var logger = slog.New(slog.NewJSONHandler(os.Stdout, nil))
 
@@ -55,9 +80,17 @@ func main() {
 	logger.Info("starting server", "addr", *addr)
 	//
 	routes := app.Routes()
+	//
 	//listen and serve
 	//
-	if err := http.ListenAndServe(*addr, routes); err != nil {
+	server := &http.Server{
+		Addr:    *addr,
+		Handler: routes,
+	}
+	//
+	//
+
+	if err := server.ListenAndServeTLS("./tls/cert.pem", "./tls/key.pem"); err != nil {
 		logger.Error("server error", "error", err)
 		os.Exit(1)
 	}
@@ -67,6 +100,8 @@ func main() {
 func (app *Application) Routes() http.Handler {
 
 	mux := http.NewServeMux()
+
+	sessions := app.sessionManager.LoadAndSave
 
 	fs := http.FileServer(http.Dir("static"))
 
@@ -80,13 +115,13 @@ func (app *Application) Routes() http.Handler {
 
 	// Snippet routes
 
-	mux.Handle("GET /snippet", setHeaderFunc(app.snippet))
+	mux.Handle("GET /snippet", sessions(setHeaderFunc(app.snippet)))
 
-	mux.Handle("GET /snippet/all", setHeaderFunc(app.snippetList))
+	mux.Handle("GET /snippet/all", sessions(setHeaderFunc(app.snippetList)))
 
-	mux.Handle("POST /snippet/create", setHeaderFunc(app.snippetCreate))
+	mux.Handle("POST /snippet/create", sessions(setHeaderFunc(app.snippetCreate)))
 
-	mux.Handle("POST /snippet/delete", setHeaderFunc(app.snippetDelete))
+	mux.Handle("POST /snippet/delete", sessions(setHeaderFunc(app.snippetDelete)))
 
 	// Default route for 404
 
