@@ -186,7 +186,6 @@ func (app *Application) snippetList(w http.ResponseWriter, r *http.Request) {
 func (app *Application) snippetCreate(w http.ResponseWriter, r *http.Request) {
 
 	var fs FormSnippet
-
 	err := r.ParseForm()
 	if err != nil {
 		fs.AddError("Error", fmt.Sprintf("Error parsing form: %v", err))
