@@ -52,7 +52,7 @@ func (app *Application) notFound(w http.ResponseWriter, r *http.Request) {
 		msg = "Page not found"
 	}
 	w.WriteHeader(http.StatusNotFound)
-	app.Template(w, "404", Render{Msg: map[string]string{"Message": msg}})
+	app.RenderHTML(w, "404", Render{Msg: map[string]string{"Message": msg}})
 }
 
 func (app *Application) error500(w http.ResponseWriter, r *http.Request) {
@@ -64,7 +64,7 @@ func (app *Application) error500(w http.ResponseWriter, r *http.Request) {
 
 	}
 	w.WriteHeader(http.StatusInternalServerError)
-	app.Template(w, "500", Render{Msg: map[string]string{"Message": msg}})
+	app.RenderHTML(w, "500", Render{Msg: map[string]string{"Message": msg}})
 }
 
 func (app *Application) error422(w http.ResponseWriter, r *http.Request) {
@@ -76,7 +76,7 @@ func (app *Application) error422(w http.ResponseWriter, r *http.Request) {
 
 	}
 	w.WriteHeader(http.StatusUnprocessableEntity)
-	app.Template(w, "422", Render{Msg: map[string]string{"Message": msg}})
+	app.RenderHTML(w, "422", Render{Msg: map[string]string{"Message": msg}})
 }
 
 func (app *Application) snippet(w http.ResponseWriter, r *http.Request) {
@@ -89,7 +89,7 @@ func (app *Application) snippet(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.Atoi(idUrl)
 
 	if id == 0 || err != nil {
-		app.Template(w, "home.html", Render{Msg: m})
+		app.RenderHTML(w, "home.html", Render{Msg: m})
 		return
 	}
 
@@ -118,7 +118,7 @@ func (app *Application) snippet(w http.ResponseWriter, r *http.Request) {
 	//
 	// content := []byte(s.Content)
 
-	err = app.Template(w, "snippet.html", Render{Msg: m, Snippet: s})
+	err = app.RenderHTML(w, "snippet.html", Render{Msg: m, Snippet: s})
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Unable to render template: %v", err), http.StatusInternalServerError)
 		return
@@ -172,7 +172,7 @@ func (app *Application) snippetList(w http.ResponseWriter, r *http.Request) {
 		// s.Html = template.HTML(s.Content)
 	}
 	//
-	err = app.Template(w, "snippet_list.html", Render{Msg: m, Snippets: res})
+	err = app.RenderHTML(w, "snippet_list.html", Render{Msg: m, Snippets: res})
 	//
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Unable to render template: %v", err), http.StatusInternalServerError)
@@ -267,4 +267,100 @@ func (app *Application) snippetDelete(w http.ResponseWriter, r *http.Request) {
 
 	http.Redirect(w, r, "/snippet/all", http.StatusSeeOther)
 
+}
+
+/// user handlers
+
+func (app *Application) userSignup(w http.ResponseWriter, r *http.Request) {
+
+	m := map[string]string{
+		"Title":   "User Signup Page",
+		"Message": "User signup page",
+	}
+	msg := map[string]map[string]string{
+		"Msg": m,
+	}
+
+	err := app.RenderHTML(w, "user.html", msg)
+	//
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Unable to render template: %v", err), http.StatusInternalServerError)
+		return
+	}
+}
+
+func (app *Application) userSignupPost(w http.ResponseWriter, r *http.Request) {
+
+	m := map[string]string{
+		"Msg":     "User Signup Page",
+		"Message": "User signup page",
+	}
+
+	msg := map[string]map[string]string{
+		"Msg": m,
+	}
+
+	err := app.RenderHTML(w, "user.html", msg)
+	//
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Unable to render template: %v", err), http.StatusInternalServerError)
+		return
+	}
+}
+
+func (app *Application) userLogin(w http.ResponseWriter, r *http.Request) {
+
+	m := map[string]string{
+		"Msg":     "User Login Page",
+		"Message": "User login page",
+	}
+
+	msg := map[string]map[string]string{
+		"Msg": m,
+	}
+
+	err := app.RenderHTML(w, "user.html", msg)
+	//
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Unable to render template: %v", err), http.StatusInternalServerError)
+		return
+	}
+}
+
+func (app *Application) userLoginPost(w http.ResponseWriter, r *http.Request) {
+
+	m := map[string]string{
+		"Msg":     "User Login Page",
+		"Message": "User login page",
+	}
+
+	msg := map[string]map[string]string{
+		"Msg": m,
+	}
+
+	err := app.RenderHTML(w, "user.html", msg)
+	//
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Unable to render template: %v", err), http.StatusInternalServerError)
+		return
+	}
+}
+
+func (app *Application) userLogoutPost(w http.ResponseWriter, r *http.Request) {
+
+	m := map[string]string{
+		"Msg":     "User Logout Page",
+		"Message": "User logout page",
+	}
+
+	msg := map[string]map[string]string{
+		"Msg": m,
+	}
+
+	err := app.RenderHTML(w, "user.html", msg)
+	//
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Unable to render template: %v", err), http.StatusInternalServerError)
+		return
+	}
 }

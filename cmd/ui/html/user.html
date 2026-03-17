@@ -1,0 +1,16 @@
+{{ template "head" . }}
+
+{{ block "user" .}}
+<div class="container-md">
+    
+    {{ template "navbar" . }}
+    
+    
+    <h1>
+        {{ or .Msg.Message }}
+    </h1>
+    
+{{ end }}
+
+</div>
+{{ template "footer" . }}

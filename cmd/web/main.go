@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"database/sql"
 	"flag"
 	"fmt"
@@ -29,8 +30,9 @@ type Application struct {
 	DB             *sql.DB
 	Snippets       *models.SnippetModel
 	Snippet        models.Snippet
-	Template       func(wr io.Writer, name string, data any) error
+	RenderHTML     func(wr io.Writer, name string, data any) error
 	sessionManager *scs.SessionManager
+	User           *models.UserModel
 }
 
 type flashMsg struct {
@@ -53,23 +55,27 @@ func main() {
 	}
 	customTemplateExecute := customTemplate.ExecuteTemplate
 
+	DB := database.New()
 	// app instance with dependencies
 	app := &Application{
-		DB: database.New(),
+		DB: DB,
 		Snippets: &models.SnippetModel{
-			DB: database.New(),
+			DB: DB,
 		},
 		Snippet:        models.Snippet{},
-		Template:       customTemplateExecute,
+		RenderHTML:     customTemplateExecute,
 		sessionManager: scs.New(),
+		User: &models.UserModel{
+			DB: DB,
+		},
 	}
 
-	app.sessionManager.Store = postgresstore.New(app.DB)
+	app.sessionManager.Store = postgresstore.New(DB)
 	app.sessionManager.Lifetime = 1 * time.Hour
 	//
 	// default addr
 	//
-	var addr = flag.String("addr", ":5000", "HTTP network address")
+	var addr = flag.String("addr", ":5500", "HTTP network address")
 	//
 	//
 
@@ -82,10 +88,18 @@ func main() {
 	routes := app.Routes()
 	//
 	//listen and serve
+	tlsConfig := &tls.Config{
+		CurvePreferences: []tls.CurveID{tls.X25519, tls.CurveP256},
+	}
 	//
 	server := &http.Server{
-		Addr:    *addr,
-		Handler: routes,
+		Addr:        *addr,
+		Handler:     routes,
+		IdleTimeout: time.Minute,
+		TLSConfig:   tlsConfig,
+		// Add Idle, Read and Write timeouts to the server.
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 10 * time.Second,
 	}
 	//
 	//
@@ -122,6 +136,18 @@ func (app *Application) Routes() http.Handler {
 	mux.Handle("POST /snippet/create", sessions(setHeaderFunc(app.snippetCreate)))
 
 	mux.Handle("POST /snippet/delete", sessions(setHeaderFunc(app.snippetDelete)))
+
+	// User
+
+	mux.Handle("GET /user/signup", sessions(setHeaderFunc(app.userSignup)))
+
+	mux.Handle("POST /user/signup", sessions(setHeaderFunc(app.userSignupPost)))
+
+	mux.Handle("GET /user/login", sessions(setHeaderFunc(app.userLogin)))
+
+	mux.Handle("POST /user/login", sessions(setHeaderFunc(app.userLoginPost)))
+
+	mux.Handle("POST /user/logout", sessions(setHeaderFunc(app.userLogoutPost)))
 
 	// Default route for 404
 
