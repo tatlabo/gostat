@@ -44,6 +44,39 @@ type Render struct {
 	Msg      map[string]string
 }
 
+type RenderUser struct {
+	Msg      map[string]string
+	MsgAlert map[string]string
+	Error    map[string]string
+}
+
+func (ru *RenderUser) Make() {
+	ru.Msg = make(map[string]string)
+	ru.MsgAlert = make(map[string]string)
+	ru.Error = make(map[string]string)
+}
+
+func (ru *RenderUser) AddError(k, v string) {
+	if ru.Error == nil {
+		ru.Error = make(map[string]string)
+	}
+	ru.Error[k] = v
+}
+
+func (ru *RenderUser) AddMsg(k, v string) {
+	if ru.Msg == nil {
+		ru.Msg = make(map[string]string)
+	}
+	ru.Msg[k] = v
+}
+
+func (ru *RenderUser) AddMsgAlert(k, v string) {
+	if ru.MsgAlert == nil {
+		ru.MsgAlert = make(map[string]string)
+	}
+	ru.MsgAlert[k] = v
+}
+
 func (app *Application) notFound(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
@@ -273,15 +306,24 @@ func (app *Application) snippetDelete(w http.ResponseWriter, r *http.Request) {
 
 func (app *Application) userSignup(w http.ResponseWriter, r *http.Request) {
 
-	m := map[string]string{
-		"Title":   "User Signup Page",
-		"Message": "User signup page",
-	}
-	msg := map[string]map[string]string{
-		"Msg": m,
+	render := RenderUser{}
+	render.Make()
+
+	render.Msg["Title"] = "User Signup Page"
+
+	flash := app.sessionManager.Pop(r.Context(), "flash")
+
+	if flash != nil {
+		render.Msg["Message"] = flash.(string)
+		render.MsgAlert["Message"] = "alert alert-warning"
 	}
 
-	err := app.RenderHTML(w, "user.html", msg)
+	fieldsError, ok := r.Context().Value("error").(map[string]string)
+	if ok && fieldsError != nil {
+		render.Error = fieldsError
+	}
+
+	err := app.RenderHTML(w, "signup.html", render)
 	//
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Unable to render template: %v", err), http.StatusInternalServerError)
@@ -291,35 +333,57 @@ func (app *Application) userSignup(w http.ResponseWriter, r *http.Request) {
 
 func (app *Application) userSignupPost(w http.ResponseWriter, r *http.Request) {
 
-	m := map[string]string{
-		"Msg":     "User Signup Page",
-		"Message": "User signup page",
-	}
-
-	msg := map[string]map[string]string{
-		"Msg": m,
-	}
-
-	err := app.RenderHTML(w, "user.html", msg)
-	//
+	var form userSignupForm
+	err := r.ParseForm()
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Unable to render template: %v", err), http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("Error parsing form: %v", err), http.StatusBadRequest)
 		return
 	}
+
+	form.Name = r.PostForm.Get("name")
+	form.Email = r.PostForm.Get("email")
+	form.Password = r.PostForm.Get("password")
+
+	form.CheckForm()
+	if len(form.FieldError) > 0 {
+		app.sessionManager.Put(r.Context(), "flash", "Error in form submission")
+		form.AddError("Error", fmt.Sprintf("Form errors: %v\n", form.FieldError))
+		ctx := r.Context()
+		ctx = context.WithValue(ctx, "error", form.FieldError)
+		r = r.WithContext(ctx)
+		app.userSignup(w, r)
+		return
+	}
+
+	id, err := app.User.Insert(form.Name, form.Email, form.Password)
+	if err != nil {
+		app.sessionManager.Put(r.Context(), "flash", "Error creating user: "+err.Error())
+		app.userSignup(w, r)
+		return
+	}
+
+	Message := "User " + strconv.Itoa(*id) + " created successfully"
+
+	app.sessionManager.Put(r.Context(), "flash", Message)
+
+	http.Redirect(w, r, "/user/login", http.StatusSeeOther)
+	//
 }
 
 func (app *Application) userLogin(w http.ResponseWriter, r *http.Request) {
 
-	m := map[string]string{
-		"Msg":     "User Login Page",
-		"Message": "User login page",
+	render := RenderUser{}
+	render.Make()
+
+	render.AddMsg("Message", "User Login Page")
+
+	flash := app.sessionManager.Pop(r.Context(), "flash")
+	if flash != nil {
+		render.AddMsg("Message", flash.(string))
+		render.AddMsgAlert("Message", "alert alert-success")
 	}
 
-	msg := map[string]map[string]string{
-		"Msg": m,
-	}
-
-	err := app.RenderHTML(w, "user.html", msg)
+	err := app.RenderHTML(w, "user.html", render)
 	//
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Unable to render template: %v", err), http.StatusInternalServerError)
@@ -329,16 +393,12 @@ func (app *Application) userLogin(w http.ResponseWriter, r *http.Request) {
 
 func (app *Application) userLoginPost(w http.ResponseWriter, r *http.Request) {
 
-	m := map[string]string{
-		"Msg":     "User Login Page",
-		"Message": "User login page",
-	}
+	render := RenderUser{}
 
-	msg := map[string]map[string]string{
-		"Msg": m,
-	}
+	render.AddMsg("Msg", "User Login Page")
+	render.AddMsg("Message", "User login page")
 
-	err := app.RenderHTML(w, "user.html", msg)
+	err := app.RenderHTML(w, "user.html", render)
 	//
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Unable to render template: %v", err), http.StatusInternalServerError)
@@ -348,16 +408,14 @@ func (app *Application) userLoginPost(w http.ResponseWriter, r *http.Request) {
 
 func (app *Application) userLogoutPost(w http.ResponseWriter, r *http.Request) {
 
-	m := map[string]string{
-		"Msg":     "User Logout Page",
-		"Message": "User logout page",
-	}
+	render := RenderUser{}
 
-	msg := map[string]map[string]string{
-		"Msg": m,
-	}
+	// app.sessionManager.Delete(r.Context(), "flash", "Error creating user: "+err.Error())
 
-	err := app.RenderHTML(w, "user.html", msg)
+	render.AddMsg("Title", "User Logout Page")
+	render.AddMsg("Message", "User logout successfully")
+
+	err := app.RenderHTML(w, "user.html", render)
 	//
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Unable to render template: %v", err), http.StatusInternalServerError)

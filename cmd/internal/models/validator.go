@@ -1,6 +1,7 @@
 package models
 
 import (
+	"regexp"
 	"slices"
 	"strings"
 	"unicode/utf8"
@@ -48,4 +49,14 @@ func MaxChar(s string, n int) bool {
 // check if value is in the specific list
 func PermittedValues[T comparable](value T, permitted ...T) bool {
 	return slices.Contains(permitted, value)
+}
+
+var EmailRX = regexp.MustCompile("^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$")
+
+func MinChar(value string, n int) bool {
+	return utf8.RuneCountInString(value) >= n
+}
+
+func Matches(value string, rx *regexp.Regexp) bool {
+	return rx.MatchString(value)
 }

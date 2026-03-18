@@ -9,10 +9,11 @@ require (
 	github.com/golang-migrate/migrate/v4 v4.19.1
 	github.com/gorilla/sessions v1.4.0
 	github.com/lib/pq v1.11.2
-	golang.org/x/text v0.34.0
+	golang.org/x/text v0.35.0
 )
 
 require (
 	github.com/dlclark/regexp2 v1.11.5 // indirect
 	github.com/gorilla/securecookie v1.1.2 // indirect
+	golang.org/x/crypto v0.49.0 // indirect
 )

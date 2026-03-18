@@ -5,10 +5,16 @@
     
     {{ template "navbar" . }}
     
-    
-    <h1>
+    <h3 class="{{ or .MsgAlert.Message `alert alert-light` }}">
         {{ or .Msg.Message }}
-    </h1>
+    </h3>
+    {{ if gt (len .Error) 0 }}
+    <div class="alert alert-danger" role="alert">
+        {{ range $key, $value := .Error }}
+            <p>{{ $key }} - {{ $value }}</p>
+        {{ end }}
+    </div>
+    {{ end }}
     
 {{ end }}
 

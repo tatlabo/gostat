@@ -14,17 +14,15 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/alexedwards/scs/postgresstore"
 	"github.com/alexedwards/scs/v2"
-	"github.com/gorilla/sessions"
 
 	_ "github.com/lib/pq"
 )
-
-// Key should be 32 or 64 bytes for AES-256
-var store = sessions.NewCookieStore([]byte("67d91ab19dfc349e8d6693827c10373bde90bf03c51c5c9727ba1488b8573b9f"))
 
 type Application struct {
 	DB             *sql.DB
@@ -102,13 +100,43 @@ func main() {
 		WriteTimeout: 10 * time.Second,
 	}
 	//
-	//
+
+	done := make(chan bool, 1)
+	go gracefulShutdown(server, done)
+
+	go httpServer80(":80")
 
 	if err := server.ListenAndServeTLS("./tls/cert.pem", "./tls/key.pem"); err != nil {
 		logger.Error("server error", "error", err)
 		os.Exit(1)
 	}
 
+}
+
+func httpServer80(port string) {
+
+	server := &http.Server{
+		Addr: port,
+		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			http.Redirect(w, r, "https://"+r.Host+r.RequestURI, http.StatusSeeOther)
+		}),
+
+		IdleTimeout:  time.Minute,
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 10 * time.Second,
+	}
+
+	done := make(chan bool, 1)
+
+	go gracefulShutdown(server, done)
+
+	err := server.ListenAndServe()
+	if err != nil && err != http.ErrServerClosed {
+		panic(fmt.Sprintf("http server error: %s", err))
+	}
+
+	<-done
+	log.Println("Graceful shutdown complete.")
 }
 
 func (app *Application) Routes() http.Handler {
@@ -264,4 +292,29 @@ func (app *Application) recoverPanic(next http.Handler) http.Handler {
 		next.ServeHTTP(w, r)
 
 	})
+}
+
+func gracefulShutdown(apiServer *http.Server, done chan bool) {
+	// Create context that listens for the interrupt signal from the OS.
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	// Listen for the interrupt signal.
+	<-ctx.Done()
+
+	log.Println("shutting down gracefully, press Ctrl+C again to force")
+	stop() // Allow Ctrl+C to force shutdown
+
+	// The context is used to inform the server it has 5 seconds to finish
+	// the request it is currently handling
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := apiServer.Shutdown(ctx); err != nil {
+		log.Printf("Server forced to shutdown with error: %v", err)
+	}
+
+	log.Println("Server exiting")
+
+	// Notify the main goroutine that the shutdown is complete
+	done <- true
 }
