@@ -78,6 +78,13 @@ type userSignupForm struct {
 	FieldError map[string]string `form:"-"`
 }
 
+type userLoginForm struct {
+	Name       string            `form:"name"`
+	Email      string            `form:"email"`
+	Password   string            `form:"password"`
+	FieldError map[string]string `form:"-"`
+}
+
 func (f *userSignupForm) AddError(k, v string) {
 	if f.FieldError == nil {
 		f.FieldError = make(map[string]string)

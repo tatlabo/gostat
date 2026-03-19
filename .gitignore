@@ -2,4 +2,4 @@ tmp
 *.exe
 *.log
 *.tmp
-tls
+tls/*pem

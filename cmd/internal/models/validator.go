@@ -8,9 +8,10 @@ import (
 )
 
 type Validator struct {
-	FieldErrors map[string]string
-	NotBlank    func(string, int) bool
-	MaxChar     func(string, int) bool
+	FieldErrors     map[string]string
+	NotBlank        func(string, int) bool
+	MaxChar         func(string, int) bool
+	NonFieldsErrors []string
 }
 
 // check is there any error

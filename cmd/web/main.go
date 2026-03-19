@@ -6,8 +6,10 @@ import (
 	"database/sql"
 	"flag"
 	"fmt"
+	static "gostats"
 	"gostats/cmd/internal/database"
 	"gostats/cmd/internal/models"
+	"gostats/cmd/ui"
 	"html/template"
 	"io"
 	"log"
@@ -104,7 +106,7 @@ func main() {
 	done := make(chan bool, 1)
 	go gracefulShutdown(server, done)
 
-	go httpServer80(":80")
+	go httpServer80(":5000")
 
 	if err := server.ListenAndServeTLS("./tls/cert.pem", "./tls/key.pem"); err != nil {
 		logger.Error("server error", "error", err)
@@ -118,7 +120,7 @@ func httpServer80(port string) {
 	server := &http.Server{
 		Addr: port,
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			http.Redirect(w, r, "https://"+r.Host+r.RequestURI, http.StatusSeeOther)
+			http.Redirect(w, r, "https://localhost:5500", http.StatusSeeOther)
 		}),
 
 		IdleTimeout:  time.Minute,
@@ -130,6 +132,7 @@ func httpServer80(port string) {
 
 	go gracefulShutdown(server, done)
 
+	log.Printf("HTTP server on port %s", port)
 	err := server.ListenAndServe()
 	if err != nil && err != http.ErrServerClosed {
 		panic(fmt.Sprintf("http server error: %s", err))
@@ -145,13 +148,11 @@ func (app *Application) Routes() http.Handler {
 
 	sessions := app.sessionManager.LoadAndSave
 
-	fs := http.FileServer(http.Dir("static"))
-
 	media := http.FileServer(http.Dir("media"))
 
-	mux.Handle("/static/", http.StripPrefix("/static/", fs))
+	mux.Handle("GET /static/", http.FileServerFS(static.StaticFiles))
 
-	mux.Handle("/media/", http.StripPrefix("/media/", media))
+	mux.Handle("GET /media/", http.StripPrefix("/media/", media))
 
 	mux.Handle("GET /{$}", setHeaderFunc(hello))
 
@@ -251,7 +252,8 @@ var funcMap = func() template.FuncMap {
 
 func customTemplate() (*template.Template, error) {
 
-	parse, err := template.New("").Funcs(funcMap()).ParseGlob("./cmd/ui/html/*.html")
+	// parse, err := template.New("").Funcs(funcMap()).ParseGlob("./cmd/ui/html/*.html")
+	parse, err := template.New("").Funcs(funcMap()).ParseFS(ui.Html, "html/*.html")
 	if err != nil {
 		return nil, err
 	}
