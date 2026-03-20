@@ -145,7 +145,7 @@ func (app *Application) snippetList(w http.ResponseWriter, r *http.Request) {
 	// }
 
 	flash := app.newTemplateData(r)
-	// flash := app.sessionManager.GetString(r.Context(), "flash")
+	// flash := app.SessionManager.GetString(r.Context(), "flash")
 
 	if flash.Flash != "" {
 		m["Flash"] = flash.Flash
@@ -217,7 +217,7 @@ func (app *Application) snippetCreate(w http.ResponseWriter, r *http.Request) {
 	s.Content = fs.Content
 	s.Expires = fs.Expires
 
-	res, err := app.Snippets.Insert(&s)
+	res, err := app.Snippets.Insert(s)
 	if err != nil {
 		fs.FieldError["Error"] = fmt.Sprintf("ERROR inserting snippet: %v\n%v\n", *res, err)
 		http.Error(w, fs.FieldError["Error"], http.StatusInternalServerError)
@@ -229,7 +229,7 @@ func (app *Application) snippetCreate(w http.ResponseWriter, r *http.Request) {
 	okMsg.WriteString(s.Title)
 	okMsg.WriteString(" created successfully")
 
-	app.sessionManager.Put(r.Context(), "flash", okMsg.String())
+	app.SessionManager.Put(r.Context(), "flash", okMsg.String())
 
 	http.Redirect(w, r, "/snippet/all", http.StatusSeeOther)
 
@@ -253,7 +253,7 @@ func (app *Application) snippetDelete(w http.ResponseWriter, r *http.Request) {
 
 	s.ID = id
 
-	sDeleteted, err := app.Snippets.Delete(&s)
+	sDeleteted, err := app.Snippets.Delete(s)
 	if err != nil {
 		msg := fmt.Sprintf("ERROR deleting snippet: %v\n%v\n", s.ID, err)
 		ctx = context.WithValue(ctx, "error", msg)
@@ -263,7 +263,7 @@ func (app *Application) snippetDelete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Set flash message for redirect
-	app.sessionManager.Put(r.Context(), "flash", "Snippet "+sDeleteted.Title+" deleted successfully")
+	app.SessionManager.Put(r.Context(), "flash", "Snippet "+sDeleteted.Title+" deleted successfully")
 
 	http.Redirect(w, r, "/snippet/all", http.StatusSeeOther)
 

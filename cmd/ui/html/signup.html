@@ -1,16 +1,15 @@
 {{ template "head" . }}
 <div class="container-md">
 {{ template "navbar" . }}
-{{ if .Msg.Message }}
-<h2 class="{{ or .MsgAlert.Message `alert alert-light` }}">
-    {{ .Msg.Message }}
-</h2>
+{{ if .Flash}}
+    <h3 class="{{ or .MsgAlert.Message `alert alert-light` }}">
+        {{ .Flash }}
+    </h3>
 {{ end }}
 {{ block "signup" . }}
 <form action="/user/signup" method="post" class="my-1">
     <div class="form-row">
         <div class="form-group mb-3">
-
             <label for="name"
                 {{ if .Error.ErrorName }} class="text-danger"{{ end }}>
             Username{{ if .Error.ErrorName }} - {{ .Error.ErrorName }}{{ end }}</label>

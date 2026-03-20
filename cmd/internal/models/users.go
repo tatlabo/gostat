@@ -43,7 +43,6 @@ func (m *UserModel) Insert(name, email string, Password string) (*int, error) {
 				return nil, ErrDuplicateEmail // your custom error
 			}
 		}
-		fmt.Printf("Error inserting user: %v\n", err)
 		return nil, fmt.Errorf("%#v", err)
 
 	}

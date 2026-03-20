@@ -6,11 +6,9 @@ import (
 	"database/sql"
 	"flag"
 	"fmt"
-	static "gostats"
 	"gostats/cmd/internal/database"
 	"gostats/cmd/internal/models"
-	"gostats/cmd/ui"
-	"html/template"
+	"gostats/static"
 	"io"
 	"log"
 	"log/slog"
@@ -29,10 +27,11 @@ import (
 type Application struct {
 	DB             *sql.DB
 	Snippets       *models.SnippetModel
-	Snippet        models.Snippet
+	Snippet        *models.Snippet
 	RenderHTML     func(wr io.Writer, name string, data any) error
-	sessionManager *scs.SessionManager
+	SessionManager *scs.SessionManager
 	User           *models.UserModel
+	Logger         *slog.Logger
 }
 
 type flashMsg struct {
@@ -42,7 +41,7 @@ type flashMsg struct {
 
 func (app *Application) newTemplateData(r *http.Request) flashMsg {
 	return flashMsg{
-		Flash: app.sessionManager.PopString(r.Context(), "flash"),
+		Flash: app.SessionManager.PopString(r.Context(), "flash"),
 		Time:  time.Now(),
 	}
 }
@@ -62,28 +61,26 @@ func main() {
 		Snippets: &models.SnippetModel{
 			DB: DB,
 		},
-		Snippet:        models.Snippet{},
+		Snippet:        &models.Snippet{},
 		RenderHTML:     customTemplateExecute,
-		sessionManager: scs.New(),
+		SessionManager: scs.New(),
 		User: &models.UserModel{
 			DB: DB,
 		},
+		Logger: slog.New(slog.NewJSONHandler(os.Stdout, nil)),
 	}
 
-	app.sessionManager.Store = postgresstore.New(DB)
-	app.sessionManager.Lifetime = 1 * time.Hour
+	app.SessionManager.Store = postgresstore.New(DB)
+	app.SessionManager.Lifetime = 1 * time.Hour
 	//
 	// default addr
-	//
 	var addr = flag.String("addr", ":5500", "HTTP network address")
 	//
-	//
 
-	var logger = slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	app.Logger.Info("HTTPS", "port", *addr)
 
 	flag.Parse()
 
-	logger.Info("starting server", "addr", *addr)
 	//
 	routes := app.Routes()
 	//
@@ -106,16 +103,16 @@ func main() {
 	done := make(chan bool, 1)
 	go gracefulShutdown(server, done)
 
-	go httpServer80(":5000")
+	go app.HttpServer80(":5000")
 
 	if err := server.ListenAndServeTLS("./tls/cert.pem", "./tls/key.pem"); err != nil {
-		logger.Error("server error", "error", err)
+		app.Logger.Error("server error", "error", err)
 		os.Exit(1)
 	}
 
 }
 
-func httpServer80(port string) {
+func (app *Application) HttpServer80(port string) {
 
 	server := &http.Server{
 		Addr: port,
@@ -132,21 +129,24 @@ func httpServer80(port string) {
 
 	go gracefulShutdown(server, done)
 
-	log.Printf("HTTP server on port %s", port)
+	app.Logger.Info("HTTP", "port", port)
+
 	err := server.ListenAndServe()
+
 	if err != nil && err != http.ErrServerClosed {
-		panic(fmt.Sprintf("http server error: %s", err))
+		app.Logger.Error("server error", "error", err)
+		os.Exit(1)
 	}
 
 	<-done
-	log.Println("Graceful shutdown complete.")
+	app.Logger.Info("Graceful shutdown complete.")
 }
 
 func (app *Application) Routes() http.Handler {
 
 	mux := http.NewServeMux()
 
-	sessions := app.sessionManager.LoadAndSave
+	sessions := app.SessionManager.LoadAndSave
 
 	media := http.FileServer(http.Dir("media"))
 
@@ -232,35 +232,6 @@ func myMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-var funcMap = func() template.FuncMap {
-
-	return template.FuncMap{
-		"mod": func(i, j int) int {
-			return i % j
-		},
-		"sub": func(i, j int) int {
-			return i - j
-		},
-		"CurrentYear": func() int {
-			return time.Now().Year()
-		},
-		"CurrentDay": func() string {
-			return time.Now().Format("2006-01-02")
-		},
-	}
-}
-
-func customTemplate() (*template.Template, error) {
-
-	// parse, err := template.New("").Funcs(funcMap()).ParseGlob("./cmd/ui/html/*.html")
-	parse, err := template.New("").Funcs(funcMap()).ParseFS(ui.Html, "html/*.html")
-	if err != nil {
-		return nil, err
-	}
-
-	return parse, nil
-}
-
 func (app *Application) logRequest(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var (
@@ -270,7 +241,7 @@ func (app *Application) logRequest(next http.Handler) http.Handler {
 			path   = r.URL.RequestURI()
 		)
 
-		slog.Info("Received request", "ip", ip, "proto", proto, "method", method, "path", path)
+		app.Logger.Info("Received request", "ip", ip, "proto", proto, "method", method, "path", path)
 
 		next.ServeHTTP(w, r)
 
@@ -298,13 +269,14 @@ func (app *Application) recoverPanic(next http.Handler) http.Handler {
 
 func gracefulShutdown(apiServer *http.Server, done chan bool) {
 	// Create context that listens for the interrupt signal from the OS.
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
 	// Listen for the interrupt signal.
 	<-ctx.Done()
 
-	log.Println("shutting down gracefully, press Ctrl+C again to force")
+	logger.Info("shutting down gracefully, press Ctrl+C again to force")
 	stop() // Allow Ctrl+C to force shutdown
 
 	// The context is used to inform the server it has 5 seconds to finish
@@ -312,10 +284,10 @@ func gracefulShutdown(apiServer *http.Server, done chan bool) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err := apiServer.Shutdown(ctx); err != nil {
-		log.Printf("Server forced to shutdown with error: %v", err)
+		logger.Error("Server forced to shutdown with error", "error", err)
 	}
 
-	log.Println("Server exiting")
+	logger.Info("Server exiting")
 
 	// Notify the main goroutine that the shutdown is complete
 	done <- true
