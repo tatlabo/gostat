@@ -149,12 +149,12 @@ func (app *Application) Routes() http.Handler {
 	sessions := app.SessionManager.LoadAndSave
 
 	media := http.FileServer(http.Dir("media"))
-
-	mux.Handle("GET /static/", http.FileServerFS(static.StaticFiles))
-
 	mux.Handle("GET /media/", http.StripPrefix("/media/", media))
 
+	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServerFS(static.StaticFiles)))
+
 	mux.Handle("GET /{$}", setHeaderFunc(hello))
+	mux.Handle("GET /ping", setHeaderFunc(ping))
 
 	// Snippet routes
 
@@ -183,6 +183,10 @@ func (app *Application) Routes() http.Handler {
 	mux.Handle("/", setHeaderFunc(app.notFound))
 
 	return app.recoverPanic(app.logRequest(mux))
+}
+
+func ping(w http.ResponseWriter, r *http.Request) {
+	w.Write([]byte("OK"))
 }
 
 func setHeaderFunc(next http.HandlerFunc) http.HandlerFunc {
