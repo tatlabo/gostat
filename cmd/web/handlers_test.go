@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"gostats/cmd/internal/assert"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -11,16 +12,22 @@ import (
 
 func TestPing(t *testing.T) {
 
-	rr := httptest.NewRecorder()
+	app := &Application{
+		Logger: slog.New(slog.DiscardHandler),
+	}
 
-	req, err := http.NewRequest("GET", "/", nil)
+	ts := httptest.NewTLSServer(app.Routes())
+	defer ts.Close()
+
+	req, err := http.NewRequest("GET", ts.URL+"/ping", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	ping(rr, req)
-
-	res := rr.Result()
+	res, err := ts.Client().Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer res.Body.Close()
 
 	assert.Equal(t, res.StatusCode, http.StatusOK)

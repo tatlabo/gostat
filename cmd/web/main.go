@@ -192,7 +192,7 @@ func ping(w http.ResponseWriter, r *http.Request) {
 func setHeaderFunc(next http.HandlerFunc) http.HandlerFunc {
 
 	fn := func(w http.ResponseWriter, r *http.Request) {
-		for key, value := range ResponseHeaders {
+		for key, value := range responseHeadersMap() {
 			w.Header().Set(key, value)
 		}
 
@@ -206,7 +206,7 @@ func setHeaders(next http.Handler) http.Handler {
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
-		for key, value := range ResponseHeaders {
+		for key, value := range responseHeadersMap() {
 			w.Header().Set(key, value)
 		}
 		next.ServeHTTP(w, r)
@@ -214,19 +214,22 @@ func setHeaders(next http.Handler) http.Handler {
 
 }
 
-var ResponseHeaders = map[string]string{
-	"Content-Security-Policy": "default-src 'self'; style-src 'self' fonts.googleapis.com cdn.jsdelivr.net; font-src fonts.gstatic.com; script-src 'self' cdn.jsdelivr.net; img-src 'self' data:;",
-	"Referrer-Policy":         "origin-when-cross-origin",
-	"X-Content-Type-Options":  "nosniff",
-	"X-Frame-Options":         "deny",
-	"X-XSS-Protection":        "0",
+func responseHeadersMap() map[string]string {
 
-	"Server": "Go",
+	return map[string]string{
+		"Content-Security-Policy": "default-src 'self'; style-src 'self' fonts.googleapis.com cdn.jsdelivr.net; font-src fonts.gstatic.com; script-src 'self' cdn.jsdelivr.net; img-src 'self' data:;",
+		"Referrer-Policy":         "origin-when-cross-origin",
+		"X-Content-Type-Options":  "nosniff",
+		"X-Frame-Options":         "deny",
+		"X-XSS-Protection":        "0",
 
-	"Content-Type":  "text/html; charset=utf-8",
-	"Cache-Control": "public, max-age=3600",
+		"Server": "Go",
 
-	"Transfer-Encoding": "chunked",
+		"Content-Type":  "text/html; charset=utf-8",
+		"Cache-Control": "public, max-age=3600",
+
+		"Transfer-Encoding": "chunked",
+	}
 }
 
 func myMiddleware(next http.Handler) http.Handler {
