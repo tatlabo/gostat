@@ -81,6 +81,13 @@ func (fs *FormSnippet) CheckForm() {
 	fs.CheckField(CheckDate(fs.Expires), "ErrorDate", "Date is required")
 }
 
+func (fs *FormSnippet) FormSendBack() {
+	fs.FieldError["Error"] = "Error parsing form"
+	fs.FieldError["BackTitle"] = template.HTMLEscapeString(fs.Title)
+	fs.FieldError["BackContent"] = fs.Content
+	fs.FieldError["BackDate"] = fs.Expires.Format("2006-01-02")
+}
+
 type userSignupForm struct {
 	Name       string            `form:"name"`
 	Email      string            `form:"email"`
@@ -99,13 +106,6 @@ func (f *userSignupForm) Resolve(r *http.Request) error {
 	f.Password = r.PostForm.Get("password")
 
 	return nil
-}
-
-type userLoginForm struct {
-	Name       string            `form:"name"`
-	Email      string            `form:"email"`
-	Password   string            `form:"password"`
-	FieldError map[string]string `form:"-"`
 }
 
 func (f *userSignupForm) AddError(k, v string) {
@@ -137,9 +137,44 @@ func (fs *userSignupForm) CheckForm() {
 	fs.CheckField(MaxChar(fs.Password, 32), "ErrorPassword", "Password too long, 32 characters maximum")
 }
 
-func (fs *FormSnippet) FormSendBack() {
-	fs.FieldError["Error"] = "Error parsing form"
-	fs.FieldError["BackTitle"] = template.HTMLEscapeString(fs.Title)
-	fs.FieldError["BackContent"] = fs.Content
-	fs.FieldError["BackDate"] = fs.Expires.Format("2006-01-02")
+type LoginUserForm struct {
+	Email      string            `form:"email"`
+	Password   string            `form:"password"`
+	FieldError map[string]string `form:"-"`
+}
+
+func (f *LoginUserForm) Resolve(r *http.Request) error {
+	err := r.ParseForm()
+	if err != nil {
+		return err
+	}
+
+	f.Email = r.PostForm.Get("email")
+	f.Password = r.PostForm.Get("password")
+
+	return nil
+}
+
+func (f *LoginUserForm) AddError(k, v string) {
+	if f.FieldError == nil {
+		f.FieldError = make(map[string]string)
+	}
+
+	if _, ok := f.FieldError[k]; !ok {
+		f.FieldError[k] = v
+	}
+}
+
+func (v *LoginUserForm) CheckField(ok bool, key, val string) {
+	if !ok {
+		v.AddError(key, val)
+	}
+}
+
+func (fs *LoginUserForm) CheckForm() {
+	fs.CheckField(!Blank(fs.Email), "ErrorEmail", "Email empty")
+	//
+	fs.CheckField(Matches(fs.Email, EmailRX), "ErrorEmail", "Email invalid")
+	//
+	fs.CheckField(!Blank(fs.Password), "ErrorPassword", "Password empty")
 }

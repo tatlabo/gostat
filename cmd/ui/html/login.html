@@ -1,26 +1,37 @@
 {{ template "head" . }}
 <div class="container-md">
 {{ template "navbar" . }}
+
 {{ if .Msg.Message }}
-<h2 class="{{ or .MsgAlert.Message `alert alert-light` }}">
+{{ if eq .Msg.Message  "User OK!" }}
+<h2 class="{{ or .MsgAlert.Message `alert alert-success` }}">
     {{ .Msg.Message }}
 </h2>
+{{ else }}
+<h2 class="alert alert-warning">
+    {{ .Msg.Message }}
+</h2>
+{{end}}
 {{ end }}
-{{ block "login" . }}
-<form action="/user/signup" method="post" class="my-1">
 
-    {{range .LoginUserForm.Validator.NonFieldsErrors }}
-        <div class='error'>{{.}}</div>
-    {{end}}
+
+{{ block "login" . }}
+<form action="/user/login" method="post" class="my-1">
+
+    {{ if gt (len .LoginUserForm.FieldError) 0 }}
+        {{ range .LoginUserForm.FieldError }} 
+        {{ . }}
+        {{ end }}
+    {{ end }}
 
     <div class="form-row">
         <div class="form-group mb-3">
             <label for="email"{{ if .Error.ErrorEmail }} class="text-danger"{{ end }}>Email address{{ if .Error.ErrorEmail }} - {{ .Error.ErrorEmail }}{{ end }}</label>
-            <input type="email" class="form-control" id="email" name="email" required>
+            <input type="text" class="form-control" id="email" name="email">
         </div>
         <div class="form-group mb-3">
             <label for="password"{{ if .Error.ErrorPassword }} class="text-danger"{{ end }}>Password{{ if .Error.ErrorPassword }} - {{ .Error.ErrorPassword }}{{ end }}</label>
-            <input type="password" class="form-control" id="password" name="password" required>
+            <input type="text" class="form-control" id="password" name="password">
         </div>
 
     </div>

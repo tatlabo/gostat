@@ -5,11 +5,33 @@ package main
 import (
 	"fmt"
 
+	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/text/collate"
 	"golang.org/x/text/language"
 )
 
 func main() {
+
+	password := []byte("myPassword")
+	// English sorting
+	hash, err := bcrypt.GenerateFromPassword(password, bcrypt.DefaultCost)
+	if err != nil {
+		fmt.Println("Error:", err)
+		return
+	}
+
+	fmt.Printf("%v\n", string(hash))
+
+	err = bcrypt.CompareHashAndPassword(hash, []byte(password))
+	if err != nil {
+		fmt.Printf("%#v", err)
+	} else {
+		fmt.Println("Ok!")
+	}
+
+}
+
+func sortWords() {
 
 	// English sorting
 	words := []string{"apple", "banana", "cherry"}

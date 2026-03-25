@@ -32,6 +32,7 @@ type Application struct {
 	SessionManager *scs.SessionManager
 	User           *models.UserModel
 	Logger         *slog.Logger
+	Validator      models.Validator
 }
 
 type flashMsg struct {
@@ -67,7 +68,8 @@ func main() {
 		User: &models.UserModel{
 			DB: DB,
 		},
-		Logger: slog.New(slog.NewJSONHandler(os.Stdout, nil)),
+		Logger:    slog.New(slog.NewJSONHandler(os.Stdout, nil)),
+		Validator: models.Validator{},
 	}
 
 	app.SessionManager.Store = postgresstore.New(DB)

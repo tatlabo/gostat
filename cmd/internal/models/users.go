@@ -31,9 +31,11 @@ func (m *UserModel) Insert(name, email string, Password string) (*int, error) {
 	}
 
 	stmt := `INSERT INTO users (name, email, hashed_password, created) 
-		VALUES ($1, $2, $3, NOW()) RETURNING id;`
+		VALUES ($1, $2, $3, NOW()) RETURNING id`
+
 	var id int
-	err = m.DB.QueryRow(stmt, name, email, hashedPassword).Scan(&id)
+	row := m.DB.QueryRow(stmt, name, email, hashedPassword)
+	err = row.Scan(&id)
 	if err != nil {
 		//
 		var pqErr *pq.Error
@@ -51,33 +53,33 @@ func (m *UserModel) Insert(name, email string, Password string) (*int, error) {
 
 }
 
-func (m *UserModel) Authenticate(email string, hashedPassword []byte) (*User, error) {
+func (m *UserModel) Authenticate(email string, password string) (int, error) {
 
-	stmt := `SELECT id, hashed_password FROM users WHERE email = $1;`
 	var user User
+	stmt := `SELECT id, hashed_password FROM users WHERE email = $1;`
 	err := m.DB.QueryRow(stmt, email).Scan(&user.Id, &user.HashedPassword)
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
 
-	err = bcrypt.CompareHashAndPassword(hashedPassword, []byte(user.HashedPassword))
+	err = bcrypt.CompareHashAndPassword(user.HashedPassword, []byte(password))
 	if err != nil {
 		if errors.Is(err, bcrypt.ErrMismatchedHashAndPassword) {
-			return nil, err
+			return 0, err
 		} else {
-			return nil, err
+			return 0, err
 		}
 
 	}
 
-	return &user, nil
+	return user.Id, nil
 
 }
 
-func (m *UserModel) Exists(id int) (bool, error) {
+func (m *UserModel) Exists(email string) (bool, error) {
 	stmt := `SELECT id, name, email, hashed_password, created FROM users WHERE email = $1;`
 	var user User
-	err := m.DB.QueryRow(stmt, id).Scan(&user.Id, &user.Name, &user.Email, &user.HashedPassword, &user.Created)
+	err := m.DB.QueryRow(stmt, email).Scan(&user.Id, &user.Name, &user.Email, &user.HashedPassword, &user.Created)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return false, nil
@@ -85,4 +87,18 @@ func (m *UserModel) Exists(id int) (bool, error) {
 		return false, err
 	}
 	return true, nil
+}
+
+func (m *UserModel) User(id int) (User, error) {
+	stmt := `SELECT id, name, email, hashed_password, created FROM users WHERE id = $1;`
+	var user User
+	row := m.DB.QueryRow(stmt, id)
+	err := row.Scan(&user.Id, &user.Name, &user.Email, &user.HashedPassword, &user.Created)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return user, err
+		}
+		return user, err
+	}
+	return user, nil
 }
