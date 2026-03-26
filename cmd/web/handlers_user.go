@@ -9,42 +9,6 @@ import (
 
 /// user handlers
 
-type RenderUser struct {
-	Msg      map[string]string
-	MsgAlert map[string]string
-	Error    map[string]string
-	Flash    string
-	SignupUserForm
-	LoginUserForm
-}
-
-func (ru *RenderUser) Make() {
-	ru.Msg = make(map[string]string)
-	ru.MsgAlert = make(map[string]string)
-	ru.Error = make(map[string]string)
-}
-
-func (ru *RenderUser) AddError(k, v string) {
-	if ru.Error == nil {
-		ru.Error = make(map[string]string)
-	}
-	ru.Error[k] = v
-}
-
-func (ru *RenderUser) AddMsg(k, v string) {
-	if ru.Msg == nil {
-		ru.Msg = make(map[string]string)
-	}
-	ru.Msg[k] = v
-}
-
-func (ru *RenderUser) AddMsgAlert(k, v string) {
-	if ru.MsgAlert == nil {
-		ru.MsgAlert = make(map[string]string)
-	}
-	ru.MsgAlert[k] = v
-}
-
 type SignupUserForm struct {
 	Name             string `form:"name"`
 	Email            string `form:"email"`
@@ -54,7 +18,7 @@ type SignupUserForm struct {
 
 func (app *Application) userSignup(w http.ResponseWriter, r *http.Request) {
 
-	render := RenderUser{}
+	render := Render{}
 	render.Make()
 
 	render.Msg["Title"] = "User Signup Page"
@@ -113,8 +77,10 @@ func (app *Application) userSignupPost(w http.ResponseWriter, r *http.Request) {
 
 func (app *Application) userLogin(w http.ResponseWriter, r *http.Request) {
 
-	render := RenderUser{}
+	render := Render{}
 	render.Make()
+
+	render.AddMsg("Title", "User Login Page")
 
 	fieldsError, ok := r.Context().Value("error").(map[string]string)
 	if ok && fieldsError != nil {
@@ -122,12 +88,20 @@ func (app *Application) userLogin(w http.ResponseWriter, r *http.Request) {
 		render.Error = fieldsError
 	}
 
-	render.AddMsg("Message", "User Login Page")
-	render.AddMsg("Title", "User Login Page")
+	authenticated := app.SessionManager.Get(r.Context(), "authenticatedUserID")
+	if authenticated != nil {
+		render.AddMsg("Message", "User already logged in")
+	}
 
 	flash := app.SessionManager.Pop(r.Context(), "Flash")
 	if flash != nil {
 		render.AddMsg("Message", flash.(string))
+	}
+
+	authenticatedUserName := app.SessionManager.Get(r.Context(), "authenticatedUserName")
+	if authenticatedUserName != nil {
+		render.AddMsg("Message", "User "+authenticatedUserName.(string)+" already logged in")
+		render.AddMsgAlert("Message", "alert alert-light")
 	}
 
 	err := app.RenderHTML(w, "login.html", render)
@@ -154,13 +128,9 @@ func (app *Application) userLoginPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	id, err := app.User.Authenticate(form.Email, form.Password)
-	if id < 0 {
-		app.SessionManager.Put(r.Context(), "Flash", "Authentication failed!")
-		app.userLogin(w, r)
-		return
+	user, err := app.User.Authenticated(form.Email, form.Password)
 
-	} else if err != nil {
+	if err != nil {
 		app.SessionManager.Put(r.Context(), "Flash", "Wrong email/password")
 		app.userLogin(w, r)
 		return
@@ -172,19 +142,23 @@ func (app *Application) userLoginPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	app.SessionManager.Put(r.Context(), "authenticatedUserID", id)
+	app.SessionManager.Put(r.Context(), "authenticatedUserID", user.Id)
+	app.SessionManager.Put(r.Context(), "authenticatedUserName", user.Name)
 	app.SessionManager.Put(r.Context(), "Flash", "User OK!")
 
-	app.userLogin(w, r)
+	http.Redirect(w, r, "/snippet/create", http.StatusSeeOther)
 
 	//
 }
 
 func (app *Application) userLogoutPost(w http.ResponseWriter, r *http.Request) {
 
-	render := RenderUser{}
+	render := Render{}
 
 	// app.SessionManager.Delete(r.Context(), "flash", "Error creating user: "+err.Error())
+
+	app.SessionManager.Remove(r.Context(), "authenticatedUserID")
+	app.SessionManager.Remove(r.Context(), "authenticatedUserName")
 
 	render.AddMsg("Title", "User Logout Page")
 	render.AddMsg("Message", "User logout successfully")

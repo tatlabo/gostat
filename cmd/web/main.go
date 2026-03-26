@@ -164,7 +164,7 @@ func (app *Application) Routes() http.Handler {
 
 	mux.Handle("GET /snippet/all", sessions(setHeaderFunc(app.snippetList)))
 
-	mux.Handle("POST /snippet/create", sessions(setHeaderFunc(app.snippetCreate)))
+	mux.Handle("/snippet/create", sessions(setHeaderFunc(app.snippetCreate)))
 
 	mux.Handle("POST /snippet/delete", sessions(setHeaderFunc(app.snippetDelete)))
 

@@ -3,15 +3,11 @@
 {{ template "navbar" . }}
 
 {{ if .Msg.Message }}
-{{ if eq .Msg.Message  "User OK!" }}
-<h2 class="{{ or .MsgAlert.Message `alert alert-success` }}">
-    {{ .Msg.Message }}
-</h2>
-{{ else }}
-<h2 class="alert alert-warning">
-    {{ .Msg.Message }}
-</h2>
-{{end}}
+   {{ if .MsgAlert.Message }}
+    <h3 class="{{ or .MsgAlert.Message `alert alert-warning` }}">
+        {{ .Msg.Message }}
+    </h3>
+    {{ end }}
 {{ end }}
 
 

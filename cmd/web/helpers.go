@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"net/http"
 	"strings"
 
 	"github.com/alecthomas/chroma/v2/formatters/html"
@@ -41,4 +42,18 @@ func Highlight(source string) (string, error) {
 	}
 
 	return s.String(), nil
+}
+
+func (app *Application) IsAuthenticated(r *http.Request) bool {
+	return app.SessionManager.Exists(r.Context(), "authenticatedUserID")
+}
+
+func (app *Application) AuthName(r *http.Request) string {
+	v := app.SessionManager.Get(r.Context(), "authenticatedUserName")
+	if v == nil {
+		return ""
+	}
+
+	return v.(string)
+
 }

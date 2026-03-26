@@ -39,9 +39,43 @@ func hello(w http.ResponseWriter, r *http.Request) {
 }
 
 type Render struct {
-	Snippet  models.Snippet
-	Snippets []models.Snippet
-	Msg      map[string]string
+	Snippet         models.Snippet
+	Snippets        []models.Snippet
+	Msg             map[string]string
+	MsgAlert        map[string]string
+	Error           map[string]string
+	Flash           string
+	IsAuthenticated bool
+	AuthName        string
+	SignupUserForm
+	LoginUserForm
+}
+
+func (r *Render) Make() {
+	r.Msg = make(map[string]string)
+	r.MsgAlert = make(map[string]string)
+	r.Error = make(map[string]string)
+}
+
+func (r *Render) AddError(k, v string) {
+	if r.Error == nil {
+		r.Error = make(map[string]string)
+	}
+	r.Error[k] = v
+}
+
+func (r *Render) AddMsg(k, v string) {
+	if r.Msg == nil {
+		r.Msg = make(map[string]string)
+	}
+	r.Msg[k] = v
+}
+
+func (r *Render) AddMsgAlert(k, v string) {
+	if r.MsgAlert == nil {
+		r.MsgAlert = make(map[string]string)
+	}
+	r.MsgAlert[k] = v
 }
 
 func (app *Application) notFound(w http.ResponseWriter, r *http.Request) {
@@ -128,29 +162,23 @@ func (app *Application) snippet(w http.ResponseWriter, r *http.Request) {
 
 func (app *Application) snippetList(w http.ResponseWriter, r *http.Request) {
 
-	m := map[string]string{
-		"Title":   "Snippet List Page",
-		"Message": "Snippet list page",
-	}
+	var render Render
+	render.Make()
+	render.IsAuthenticated = app.IsAuthenticated(r)
+
+	render.AddMsg("Title", "Snippet List Page")
+	render.AddMsg("Message", "Snippet list page")
 
 	ctx := r.Context()
 	msgError, ok := ctx.Value("error").(map[string]string)
 	if ok && msgError != nil {
-		maps.Copy(m, msgError)
+		maps.Copy(render.Msg, msgError)
 	}
 
 	// Get flash message if any
 	// if flash := app.GetFlash(w, r, "success"); flash != "" {
 	// 	m["Deleted"] = flash
 	// }
-
-	flash := app.newTemplateData(r)
-	// flash := app.SessionManager.GetString(r.Context(), "flash")
-
-	if flash.Flash != "" {
-		m["Flash"] = flash.Flash
-		m["FlashTime"] = flash.Time.Format("2006-01-02 15:04:05")
-	}
 
 	res, err := app.Snippets.Latest()
 	if err != nil {
@@ -171,8 +199,13 @@ func (app *Application) snippetList(w http.ResponseWriter, r *http.Request) {
 		// temporary
 		// s.Html = template.HTML(s.Content)
 	}
+
+	render.Snippets = append(render.Snippets, res...)
+
+	fmt.Printf("/n%#v/n", render.IsAuthenticated)
+
 	//
-	err = app.RenderHTML(w, "snippet_list.html", Render{Msg: m, Snippets: res})
+	err = app.RenderHTML(w, "snippet_list.html", render)
 	//
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Unable to render template: %v", err), http.StatusInternalServerError)
@@ -185,53 +218,78 @@ func (app *Application) snippetList(w http.ResponseWriter, r *http.Request) {
 
 func (app *Application) snippetCreate(w http.ResponseWriter, r *http.Request) {
 
-	var fs FormSnippet
-	err := r.ParseForm()
-	if err != nil {
-		fs.AddError("Error", fmt.Sprintf("Error parsing form: %v", err))
-		ctx := r.Context()
-		ctx = context.WithValue(ctx, "error", fs.FieldError)
-		r = r.WithContext(ctx)
-		app.snippetList(w, r)
-		return
+	var render Render
+	render.AddMsg("Title", "Snippet Page")
+	render.IsAuthenticated = app.IsAuthenticated(r)
+
+	switch {
+	case r.Method == http.MethodPost && render.IsAuthenticated:
+		var fs FormSnippet
+		err := r.ParseForm()
+		if err != nil {
+			fs.AddError("Error", fmt.Sprintf("Error parsing form: %v", err))
+			ctx := r.Context()
+			ctx = context.WithValue(ctx, "error", fs.FieldError)
+			r = r.WithContext(ctx)
+			app.snippetList(w, r)
+			return
+		}
+
+		fs.Title = r.PostForm.Get("title")
+		fs.Content = r.PostForm.Get("content")
+		fs.Expires, _ = time.Parse("2006-01-02", r.PostForm.Get("expires"))
+
+		fs.CheckForm()
+		s := app.Snippet
+
+		if len(fs.FieldError) > 0 {
+			fs.FormSendBack()
+
+			ctx := r.Context()
+			ctx = context.WithValue(ctx, "error", fs.FieldError)
+			r = r.WithContext(ctx)
+			app.snippetList(w, r)
+			return
+		}
+
+		s.Title = fs.Title
+		s.Content = fs.Content
+		s.Expires = fs.Expires
+
+		res, err := app.Snippets.Insert(s)
+		if err != nil {
+			fs.FieldError["Error"] = fmt.Sprintf("ERROR inserting snippet: %v\n%v\n", *res, err)
+			http.Error(w, fs.FieldError["Error"], http.StatusInternalServerError)
+			return
+		}
+
+		okMsg := strings.Builder{}
+		okMsg.WriteString("Snippet ")
+		okMsg.WriteString(s.Title)
+		okMsg.WriteString(" created successfully")
+
+		app.SessionManager.Put(r.Context(), "flash", okMsg.String())
+
+		http.Redirect(w, r, "/snippet/create", http.StatusSeeOther)
+
+	default:
+
+		if !app.IsAuthenticated(r) {
+			render.Msg = map[string]string{
+				"Message": "Login to create snippet.",
+			}
+
+			err := app.RenderHTML(w, "home.html", render)
+			if err != nil {
+				http.Error(w, fmt.Sprintf("Unable to render template: %v", err), http.StatusInternalServerError)
+				return
+			}
+			return
+		}
+
+		app.RenderHTML(w, "snippet-create.html", render)
+
 	}
-
-	fs.Title = r.PostForm.Get("title")
-	fs.Content = r.PostForm.Get("content")
-	fs.Expires, _ = time.Parse("2006-01-02", r.PostForm.Get("expires"))
-
-	fs.CheckForm()
-	s := app.Snippet
-
-	if len(fs.FieldError) > 0 {
-		fs.FormSendBack()
-
-		ctx := r.Context()
-		ctx = context.WithValue(ctx, "error", fs.FieldError)
-		r = r.WithContext(ctx)
-		app.snippetList(w, r)
-		return
-	}
-
-	s.Title = fs.Title
-	s.Content = fs.Content
-	s.Expires = fs.Expires
-
-	res, err := app.Snippets.Insert(s)
-	if err != nil {
-		fs.FieldError["Error"] = fmt.Sprintf("ERROR inserting snippet: %v\n%v\n", *res, err)
-		http.Error(w, fs.FieldError["Error"], http.StatusInternalServerError)
-		return
-	}
-
-	okMsg := strings.Builder{}
-	okMsg.WriteString("Snippet ")
-	okMsg.WriteString(s.Title)
-	okMsg.WriteString(" created successfully")
-
-	app.SessionManager.Put(r.Context(), "flash", okMsg.String())
-
-	http.Redirect(w, r, "/snippet/all", http.StatusSeeOther)
 
 }
 
