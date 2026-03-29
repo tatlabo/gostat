@@ -13,6 +13,7 @@
         <div class="card card-body">
             {{ if .Msg.Error }}<p>{{ or .Msg.Error "" }}</p>{{ end }}
             <form method="post" action="/snippet/create" class="my-1">
+                <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
                 <div class="form-row">
                     <div class="form-group mb-3">
                         <label for="title" {{ if .Msg.ErrorTitle }} class="text-danger"{{ end }}>{{ or .Msg.ErrorTitle "Title" }}</label>

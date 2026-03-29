@@ -13,13 +13,13 @@
 
 {{ block "login" . }}
 <form action="/user/login" method="post" class="my-1">
-
     {{ if gt (len .LoginUserForm.FieldError) 0 }}
-        {{ range .LoginUserForm.FieldError }} 
-        {{ . }}
-        {{ end }}
+    {{ range .LoginUserForm.FieldError }} 
+    {{ . }}
     {{ end }}
-
+    {{ end }}
+    
+    <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
     <div class="form-row">
         <div class="form-group mb-3">
             <label for="email"{{ if .Error.ErrorEmail }} class="text-danger"{{ end }}>Email address{{ if .Error.ErrorEmail }} - {{ .Error.ErrorEmail }}{{ end }}</label>

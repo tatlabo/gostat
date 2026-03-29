@@ -3,8 +3,9 @@
     <h1>
         {{ or .Msg.Message }}
     </h1>
-
+    
     {{ template "navbar" . }}
+    {{ template "Flash" .}}
 
     {{ template "snippet-form" . }}
 

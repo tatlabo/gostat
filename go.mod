@@ -15,5 +15,6 @@ require (
 require (
 	github.com/dlclark/regexp2 v1.11.5 // indirect
 	github.com/gorilla/securecookie v1.1.2 // indirect
+	github.com/justinas/nosurf v1.2.0 // indirect
 	golang.org/x/crypto v0.49.0 // indirect
 )

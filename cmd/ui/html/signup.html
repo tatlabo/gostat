@@ -1,10 +1,12 @@
 {{ template "head" . }}
 <div class="container-md">
 {{ template "navbar" . }}
-{{ if .Flash}}
-    <h3 class="{{ or .MsgAlert.Message `alert alert-light` }}">
-        {{ .Flash }}
-    </h3>
+{{ block "Flash" .}}
+    {{ if .Flash}}
+        <h3 class="{{ or .MsgAlert.Message `alert alert-light` }}">
+            {{ .Flash }}
+        </h3>
+    {{ end }}
 {{ end }}
 {{ block "signup" . }}
 <form action="/user/signup" method="post" class="my-1">

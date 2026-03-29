@@ -20,6 +20,7 @@ import (
 
 	"github.com/alexedwards/scs/postgresstore"
 	"github.com/alexedwards/scs/v2"
+	"github.com/justinas/nosurf"
 
 	_ "github.com/lib/pq"
 )
@@ -72,6 +73,7 @@ func main() {
 		Validator: models.Validator{},
 	}
 
+	app.SessionManager.Cookie.SameSite = http.SameSiteLaxMode
 	app.SessionManager.Store = postgresstore.New(DB)
 	app.SessionManager.Lifetime = 1 * time.Hour
 	//
@@ -89,6 +91,7 @@ func main() {
 	//listen and serve
 	tlsConfig := &tls.Config{
 		CurvePreferences: []tls.CurveID{tls.X25519, tls.CurveP256},
+		MinVersion:       tls.VersionTLS13,
 	}
 	//
 	server := &http.Server{
@@ -160,29 +163,40 @@ func (app *Application) Routes() http.Handler {
 
 	// Snippet routes
 
-	mux.Handle("GET /snippet", sessions(setHeaderFunc(app.snippet)))
+	var sessionPreventHeaders = func(wrap http.HandlerFunc) http.Handler {
+		return sessions(
+			preventCSRF(
+				setHeaders(
+					http.HandlerFunc(wrap))))
+	}
 
-	mux.Handle("GET /snippet/all", sessions(setHeaderFunc(app.snippetList)))
+	mux.Handle("GET /snippet", sessionPreventHeaders(app.snippet))
 
-	mux.Handle("/snippet/create", sessions(setHeaderFunc(app.snippetCreate)))
-
-	mux.Handle("POST /snippet/delete", sessions(setHeaderFunc(app.snippetDelete)))
+	mux.Handle("GET /snippet/all", sessionPreventHeaders(app.snippetList))
 
 	// User
 
-	mux.Handle("GET /user/signup", sessions(setHeaderFunc(app.userSignup)))
+	mux.Handle("GET /user/signup", sessionPreventHeaders(app.userSignup))
 
-	mux.Handle("POST /user/signup", sessions(setHeaderFunc(app.userSignupPost)))
+	mux.Handle("POST /user/signup", sessionPreventHeaders(app.userSignupPost))
 
-	mux.Handle("GET /user/login", sessions(setHeaderFunc(app.userLogin)))
+	mux.Handle("GET /user/login", sessionPreventHeaders(app.userLogin))
 
-	mux.Handle("POST /user/login", sessions(setHeaderFunc(app.userLoginPost)))
-
-	mux.Handle("POST /user/logout", sessions(setHeaderFunc(app.userLogoutPost)))
+	mux.Handle("POST /user/login", sessionPreventHeaders(app.userLoginPost))
 
 	// Default route for 404
 
-	mux.Handle("/", setHeaderFunc(app.notFound))
+	var withAuth = func(wrap http.HandlerFunc) http.Handler {
+		return sessions(preventCSRF(setHeaders(app.requireAuthentication(http.HandlerFunc(wrap)))))
+	}
+
+	mux.Handle("POST /user/logout", withAuth(app.userLogoutPost))
+
+	mux.Handle("/snippet/create", withAuth(app.snippetCreate))
+
+	mux.Handle("POST /snippet/delete", withAuth(app.snippetDelete))
+
+	mux.Handle("/", setHeaders(preventCSRF(http.HandlerFunc(app.notFound))))
 
 	return app.recoverPanic(app.logRequest(mux))
 }
@@ -224,13 +238,10 @@ func responseHeadersMap() map[string]string {
 		"X-Content-Type-Options":  "nosniff",
 		"X-Frame-Options":         "deny",
 		"X-XSS-Protection":        "0",
-
-		"Server": "Go",
-
-		"Content-Type":  "text/html; charset=utf-8",
-		"Cache-Control": "public, max-age=3600",
-
-		"Transfer-Encoding": "chunked",
+		"Server":                  "Go",
+		"Content-Type":            "text/html; charset=utf-8",
+		"Cache-Control":           "public, max-age=3600",
+		"Transfer-Encoding":       "chunked",
 	}
 }
 
@@ -300,4 +311,31 @@ func gracefulShutdown(apiServer *http.Server, done chan bool) {
 
 	// Notify the main goroutine that the shutdown is complete
 	done <- true
+}
+
+func (app *Application) requireAuthentication(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+		if !app.IsAuthenticated(r) {
+			http.Redirect(w, r, "/user/login", 302)
+			return
+		}
+
+		w.Header().Set("Cache-control", "no-cache")
+		next.ServeHTTP(w, r)
+	})
+
+}
+
+func preventCSRF(next http.Handler) http.Handler {
+
+	cop := http.NewCrossOriginProtection()
+	csrfHandler := nosurf.New(next)
+	csrfHandler.SetBaseCookie(http.Cookie{
+		HttpOnly: true,
+		Path:     "/",
+		Secure:   true,
+	})
+
+	return cop.Handler(csrfHandler)
 }

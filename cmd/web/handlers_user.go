@@ -18,10 +18,10 @@ type SignupUserForm struct {
 
 func (app *Application) userSignup(w http.ResponseWriter, r *http.Request) {
 
-	render := Render{}
-	render.Make()
+	var render Render
+	render.New(r)
 
-	render.Msg["Title"] = "User Signup Page"
+	render.AddMsg("Title", "User Signup Page")
 
 	flash := app.SessionManager.Pop(r.Context(), "Flash")
 
@@ -77,8 +77,8 @@ func (app *Application) userSignupPost(w http.ResponseWriter, r *http.Request) {
 
 func (app *Application) userLogin(w http.ResponseWriter, r *http.Request) {
 
-	render := Render{}
-	render.Make()
+	var render Render
+	render.New(r)
 
 	render.AddMsg("Title", "User Login Page")
 
@@ -130,6 +130,11 @@ func (app *Application) userLoginPost(w http.ResponseWriter, r *http.Request) {
 
 	user, err := app.User.Authenticated(form.Email, form.Password)
 
+	if user == nil {
+		app.SessionManager.Put(r.Context(), "Flash", "Wrong email/password")
+		app.userLogin(w, r)
+		return
+	}
 	if err != nil {
 		app.SessionManager.Put(r.Context(), "Flash", "Wrong email/password")
 		app.userLogin(w, r)
@@ -154,14 +159,15 @@ func (app *Application) userLoginPost(w http.ResponseWriter, r *http.Request) {
 func (app *Application) userLogoutPost(w http.ResponseWriter, r *http.Request) {
 
 	render := Render{}
+	render.New(r)
+
+	render.AddMsg("Title", "User Logout Page")
+	render.AddMsg("Message", "User logout successfully")
 
 	// app.SessionManager.Delete(r.Context(), "flash", "Error creating user: "+err.Error())
 
 	app.SessionManager.Remove(r.Context(), "authenticatedUserID")
 	app.SessionManager.Remove(r.Context(), "authenticatedUserName")
-
-	render.AddMsg("Title", "User Logout Page")
-	render.AddMsg("Message", "User logout successfully")
 
 	err := app.RenderHTML(w, "user.html", render)
 	//

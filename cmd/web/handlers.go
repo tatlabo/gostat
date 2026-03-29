@@ -10,6 +10,9 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/alexedwards/scs/v2"
+	"github.com/justinas/nosurf"
 )
 
 func hello(w http.ResponseWriter, r *http.Request) {
@@ -47,14 +50,40 @@ type Render struct {
 	Flash           string
 	IsAuthenticated bool
 	AuthName        string
+	CSRFToken       string
 	SignupUserForm
 	LoginUserForm
 }
 
-func (r *Render) Make() {
+// CSRFToken:       nosurf.Token(r)
+
+func (r *Render) FlashMsgPop(s *scs.SessionManager, req *http.Request) {
+
+	if flash := s.Pop(req.Context(), "flash"); flash != "" {
+		if flashMsg, ok := flash.(string); ok {
+			r.Flash = flashMsg
+		}
+	}
+}
+
+func (r *Render) FlashMsgGet(s *scs.SessionManager, req *http.Request) {
+
+	if flash := s.Get(req.Context(), "flash"); flash != "" {
+		if flashMsg, ok := flash.(string); ok {
+			r.Flash = flashMsg
+		}
+	}
+}
+
+func (r *Render) New(req *http.Request) {
 	r.Msg = make(map[string]string)
 	r.MsgAlert = make(map[string]string)
 	r.Error = make(map[string]string)
+	r.CSRFToken = nosurf.Token(req)
+}
+
+func (r *Render) Token(req *http.Request) {
+	r.CSRFToken = nosurf.Token(req)
 }
 
 func (r *Render) AddError(k, v string) {
@@ -78,52 +107,18 @@ func (r *Render) AddMsgAlert(k, v string) {
 	r.MsgAlert[k] = v
 }
 
-func (app *Application) notFound(w http.ResponseWriter, r *http.Request) {
-
-	ctx := r.Context()
-	msg, ok := ctx.Value("error").(string)
-	if !ok || msg == "" {
-		msg = "Page not found"
-	}
-	w.WriteHeader(http.StatusNotFound)
-	app.RenderHTML(w, "404", Render{Msg: map[string]string{"Message": msg}})
-}
-
-func (app *Application) error500(w http.ResponseWriter, r *http.Request) {
-
-	ctx := r.Context()
-	msg, ok := ctx.Value("error").(string)
-	if !ok || msg == "" {
-		msg = "Internal Server Error"
-
-	}
-	w.WriteHeader(http.StatusInternalServerError)
-	app.RenderHTML(w, "500", Render{Msg: map[string]string{"Message": msg}})
-}
-
-func (app *Application) error422(w http.ResponseWriter, r *http.Request) {
-
-	ctx := r.Context()
-	msg, ok := ctx.Value("error").(string)
-	if !ok || msg == "" {
-		msg = "Unprocessable Entity"
-
-	}
-	w.WriteHeader(http.StatusUnprocessableEntity)
-	app.RenderHTML(w, "422", Render{Msg: map[string]string{"Message": msg}})
-}
-
 func (app *Application) snippet(w http.ResponseWriter, r *http.Request) {
 
-	m := map[string]string{
-		"Title": "Snnippet page",
-	}
+	var render Render
+	render.New(r)
+
+	render.AddMsg("Title", "Snnipet Page")
 
 	idUrl := r.URL.Query().Get("id")
 	id, err := strconv.Atoi(idUrl)
 
 	if id == 0 || err != nil {
-		app.RenderHTML(w, "home.html", Render{Msg: m})
+		app.RenderHTML(w, "home.html", render)
 		return
 	}
 
@@ -148,11 +143,10 @@ func (app *Application) snippet(w http.ResponseWriter, r *http.Request) {
 	}
 	s.Html = template.HTML(html)
 
-	m["Message"] = "Snnippet page nr " + strconv.Itoa(id)
-	//
-	// content := []byte(s.Content)
+	render.AddMsg("Message", "Snnippet page nr "+strconv.Itoa(id))
+	render.Snippet = s
 
-	err = app.RenderHTML(w, "snippet.html", Render{Msg: m, Snippet: s})
+	err = app.RenderHTML(w, "snippet.html", render)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Unable to render template: %v", err), http.StatusInternalServerError)
 		return
@@ -162,9 +156,12 @@ func (app *Application) snippet(w http.ResponseWriter, r *http.Request) {
 
 func (app *Application) snippetList(w http.ResponseWriter, r *http.Request) {
 
-	var render Render
-	render.Make()
-	render.IsAuthenticated = app.IsAuthenticated(r)
+	var render = Render{
+		IsAuthenticated: app.IsAuthenticated(r),
+		AuthName:        app.AuthName(r),
+	}
+
+	render.New(r)
 
 	render.AddMsg("Title", "Snippet List Page")
 	render.AddMsg("Message", "Snippet list page")
@@ -176,9 +173,7 @@ func (app *Application) snippetList(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get flash message if any
-	// if flash := app.GetFlash(w, r, "success"); flash != "" {
-	// 	m["Deleted"] = flash
-	// }
+	render.FlashMsgPop(app.SessionManager, r)
 
 	res, err := app.Snippets.Latest()
 	if err != nil {
@@ -196,8 +191,6 @@ func (app *Application) snippetList(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		s.Html = template.HTML(html)
-		// temporary
-		// s.Html = template.HTML(s.Content)
 	}
 
 	render.Snippets = append(render.Snippets, res...)
@@ -219,6 +212,7 @@ func (app *Application) snippetList(w http.ResponseWriter, r *http.Request) {
 func (app *Application) snippetCreate(w http.ResponseWriter, r *http.Request) {
 
 	var render Render
+	render.New(r)
 	render.AddMsg("Title", "Snippet Page")
 	render.IsAuthenticated = app.IsAuthenticated(r)
 
@@ -285,6 +279,12 @@ func (app *Application) snippetCreate(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			return
+		}
+
+		if flash := app.SessionManager.Pop(r.Context(), "flash"); flash != "" {
+			if flashMsg, ok := flash.(string); ok {
+				render.Flash = flashMsg
+			}
 		}
 
 		app.RenderHTML(w, "snippet-create.html", render)

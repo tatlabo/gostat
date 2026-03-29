@@ -5,7 +5,7 @@
 
     <div>
         <span>
-            {{ or .Msg.Flash }}
+            {{ or .Flash }}
         </span>
         <span>
             {{ or .Msg.FlashTime }}
@@ -16,6 +16,7 @@
 
     {{ $len := len .Snippets }}
     {{ $isAuthenticated :=  .IsAuthenticated  }}
+    {{ $CSRFToken := .CSRFToken }}
     {{ range $index, $snippet := .Snippets }}
 
     <!-- 3 columns -->
@@ -37,6 +38,7 @@
                     {{ if $isAuthenticated }}
                     <form method="post" action="/snippet/delete" class="d-flex flex-row-reverse">
                         <input type="hidden" name="id" value="{{ .ID }}">
+                        <input type="hidden" name="csrf_token" value="{{ $CSRFToken }}">
                         <button type="submit" class="btn btn-link my-2 ml-5"><svg xmlns="http://www.w3.org/2000/svg"
                                 width="16" height="16" fill="currentColor" class="bi bi-trash" viewBox="0 0 16 16">
                                 <path
@@ -50,7 +52,6 @@
                 </div>
             </div>
         </div>
-
         {{ if eq $col (sub $nrOfColumns 1) }}
     </div>
     {{ else if eq $index (sub $len 1) }}
