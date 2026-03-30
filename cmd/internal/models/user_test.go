@@ -29,7 +29,7 @@ func TestInsert(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	expected, err := um.User(*id)
+	expected, err := um.UserById(*id)
 	if err != nil {
 		t.Fatal(err)
 	}

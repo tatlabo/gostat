@@ -147,6 +147,8 @@ func (app *Application) userLoginPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	app.SessionManager.Put(r.Context(), "user", user)
+
 	app.SessionManager.Put(r.Context(), "authenticatedUserID", user.Id)
 	app.SessionManager.Put(r.Context(), "authenticatedUserName", user.Name)
 	app.SessionManager.Put(r.Context(), "Flash", "User OK!")

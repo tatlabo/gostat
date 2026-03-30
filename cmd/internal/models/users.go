@@ -113,7 +113,7 @@ func (m *UserModel) Exists(email string) (bool, error) {
 	return true, nil
 }
 
-func (m *UserModel) User(id int) (User, error) {
+func (m *UserModel) UserById(id int) (User, error) {
 	stmt := `SELECT id, name, email, hashed_password, created FROM users WHERE id = $1;`
 	var user User
 	row := m.DB.QueryRow(stmt, id)
