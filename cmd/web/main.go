@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"database/sql"
+	"encoding/gob"
 	"flag"
 	"fmt"
 	"gostats/cmd/internal/database"
@@ -55,6 +56,8 @@ func main() {
 		log.Fatal("Error parsing templates: ", err)
 	}
 	customTemplateExecute := customTemplate.ExecuteTemplate
+
+	gob.Register(models.User{})
 
 	DB := database.New()
 	// app instance with dependencies
